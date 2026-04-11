@@ -1,0 +1,596 @@
+const STORAGE_KEY = 'sightWordsProgressV1';
+const DEFAULT_WORDS = [
+  'the', 'and', 'you', 'is', 'was', 'are', 'that', 'with', 'have', 'for',
+  'they', 'this', 'from', 'have', 'one', 'all', 'but', 'not', 'what', 'when',
+  'where', 'who', 'why', 'could', 'would', 'should', 'there', 'their'
+];
+
+const state = {
+  mode: 'single',
+  players: [
+    { name: 'James', score: 0, avatar: '🧑' },
+    { name: 'Michael', score: 0, avatar: '🧑‍🦱' }
+  ],
+  currentPlayer: 0,
+  timerSeconds: 10,
+  activeWordId: null,
+  words: [],
+  lastWord: '',
+  roundsPlayed: 0,
+  isReviewing: false,
+};
+
+const elements = {
+  modeSelect: document.getElementById('modeSelect'),
+  player1Name: document.getElementById('player1Name'),
+  player2Name: document.getElementById('player2Name'),
+  player1Avatar: document.getElementById('player1Avatar'),
+  player2Avatar: document.getElementById('player2Avatar'),
+  timerSeconds: document.getElementById('timerSeconds'),
+  resetProgressBtn: document.getElementById('resetProgressBtn'),
+  reviewNowBtn: document.getElementById('reviewNowBtn'),
+  loadDefaultWordsBtn: document.getElementById('loadDefaultWordsBtn'),
+  saveWordListBtn: document.getElementById('saveWordListBtn'),
+  wordEditorText: document.getElementById('wordEditorText'),
+  wordCount: document.getElementById('wordCount'),
+  currentPlayerAvatar: document.getElementById('currentPlayerAvatar'),
+  currentPlayerName: document.getElementById('currentPlayerName'),
+  playerModeLabel: document.getElementById('playerModeLabel'),
+  knownCount: document.getElementById('knownCount'),
+  reviewCount: document.getElementById('reviewCount'),
+  newCount: document.getElementById('newCount'),
+  wordText: document.getElementById('wordText'),
+  wordLabel: document.getElementById('wordLabel'),
+  timerProgress: document.getElementById('timerProgress'),
+  timerValue: document.getElementById('timerValue'),
+  wordCard: document.getElementById('wordCard'),
+  reviewWordCard: document.getElementById('reviewWordCard'),
+  passBtn: document.getElementById('passBtn'),
+  nextReviewText: document.getElementById('nextReviewText'),
+  lastWordText: document.getElementById('lastWordText'),
+  playerScore1: document.getElementById('playerScore1'),
+  playerScore2: document.getElementById('playerScore2'),
+  playerLabel1: document.getElementById('playerLabel1'),
+  playerLabel2: document.getElementById('playerLabel2'),
+  currentPlayerScore: document.getElementById('currentPlayerScore'),
+  roundsPlayed: document.getElementById('roundsPlayed'),
+  totalWords: document.getElementById('totalWords'),
+  settingsPanel: document.getElementById('settingsPanel'),
+  editorPanel: document.getElementById('editorPanel'),
+  gamePanel: document.getElementById('gamePanel'),
+  dashboardPanel: document.getElementById('dashboardPanel'),
+  infoPanel: document.getElementById('infoPanel'),
+  reviewPanel: document.getElementById('reviewPanel'),
+  reviewPlayerAvatar: document.getElementById('reviewPlayerAvatar'),
+  reviewPlayerName: document.getElementById('reviewPlayerName'),
+  reviewPlayerScore: document.getElementById('reviewPlayerScore'),
+  reviewWordText: document.getElementById('reviewWordText'),
+  reviewWordLabel: document.getElementById('reviewWordLabel'),
+  reviewTimerProgress: document.getElementById('reviewTimerProgress'),
+  reviewTimerValue: document.getElementById('reviewTimerValue'),
+  reviewPassBtn: document.getElementById('reviewPassBtn'),
+  exitReviewBtn: document.getElementById('exitReviewBtn'),
+  playerSettings: document.querySelectorAll('.player-settings'),
+  multiOnly: document.querySelectorAll('.multi-only'),
+};
+
+let timerId = null;
+let beepTimeoutId = null;
+let timerStart = 0;
+let timerEnd = 0;
+
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+function playBeep(frequency = 700, duration = 0.08, volume = 0.16) {
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = 'sine';
+  oscillator.frequency.value = frequency;
+  gain.gain.value = volume;
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + duration);
+}
+
+function playFailTone() {
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = 'triangle';
+  oscillator.frequency.value = 280;
+  gain.gain.value = 0.2;
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start();
+  gain.gain.setValueAtTime(0.2, audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+  oscillator.stop(audioContext.currentTime + 0.5);
+}
+
+function playSuccessTone() {
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = 'triangle';
+  oscillator.frequency.value = 880;
+  gain.gain.value = 0.16;
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start();
+  gain.gain.setValueAtTime(0.16, audioContext.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.18);
+  oscillator.stop(audioContext.currentTime + 0.18);
+}
+
+function startBeepLoop() {
+  stopBeepLoop();
+  scheduleNextBeep();
+}
+
+function stopBeepLoop() {
+  if (beepTimeoutId !== null) {
+    clearTimeout(beepTimeoutId);
+    beepTimeoutId = null;
+  }
+}
+
+function scheduleNextBeep() {
+  const now = Date.now();
+  const remainingMs = Math.max(0, timerEnd - now);
+  if (remainingMs <= 0) return;
+  const interval = 300 + 700 * (remainingMs / (timerEnd - timerStart));
+  playBeep(700, 0.08, 0.14);
+  beepTimeoutId = setTimeout(scheduleNextBeep, interval);
+}
+
+function loadState() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      state.mode = parsed.mode || state.mode;
+      state.players = parsed.players || state.players;
+      state.currentPlayer = parsed.currentPlayer || 0;
+      state.timerSeconds = parsed.timerSeconds || state.timerSeconds;
+      state.words = parsed.words || [];
+      state.lastWord = parsed.lastWord || '';
+      state.roundsPlayed = parsed.roundsPlayed || 0;
+    } catch (error) {
+      console.warn('Unable to parse stored progress, starting fresh.');
+    }
+  }
+
+  if (!Array.isArray(state.words) || state.words.length === 0) {
+    state.words = DEFAULT_WORDS.map((word, index) => ({
+      id: index + 1,
+      text: word,
+      correctCount: 0,
+      incorrectCount: 0,
+      status: 'new',
+      nextReview: Date.now(),
+    }));
+  }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    mode: state.mode,
+    players: state.players,
+    currentPlayer: state.currentPlayer,
+    timerSeconds: state.timerSeconds,
+    words: state.words,
+    lastWord: state.lastWord,
+    roundsPlayed: state.roundsPlayed,
+  }));
+}
+
+function parseWordEditorText() {
+  const raw = elements.wordEditorText.value;
+  const words = raw
+    .split(/[,\n]+/)
+    .map((word) => word.trim())
+    .filter(Boolean);
+  return Array.from(new Set(words.map((w) => w.toLowerCase()))).map((lower) => {
+    const original = words.find((w) => w.toLowerCase() === lower);
+    return original;
+  });
+}
+
+function loadDefaultWords() {
+  elements.wordEditorText.value = DEFAULT_WORDS.join('\n');
+  updateWordCount();
+}
+
+function updateWordCount() {
+  elements.wordCount.textContent = parseWordEditorText().length;
+}
+
+function buildWordEditorText() {
+  elements.wordEditorText.value = state.words.map((word) => word.text).join('\n');
+  updateWordCount();
+}
+
+function getNextWord() {
+  const now = Date.now();
+  const dueWords = state.words.filter((word) => word.nextReview <= now);
+  const reviewWords = dueWords.filter((word) => word.status !== 'known');
+  const knownReview = dueWords.filter((word) => word.status === 'known');
+
+  if (reviewWords.length > 0) {
+    return randomItem(reviewWords);
+  }
+  if (knownReview.length > 0) {
+    return randomItem(knownReview);
+  }
+
+  const newWords = state.words.filter((word) => word.status === 'new');
+  if (newWords.length > 0) {
+    return randomItem(newWords);
+  }
+
+  return randomItem(state.words);
+}
+
+function getReviewWord() {
+  const reviewWords = state.words.filter((word) => word.status !== 'known');
+  if (reviewWords.length > 0) {
+    return randomItem(reviewWords);
+  }
+  return randomItem(state.words);
+}
+
+function randomItem(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function updateCounts() {
+  const knownCount = state.words.filter((w) => w.status === 'known').length;
+  const reviewCount = state.words.filter((w) => w.status === 'review').length;
+  const newCount = state.words.filter((w) => w.status === 'new').length;
+  elements.knownCount.textContent = knownCount;
+  elements.reviewCount.textContent = reviewCount;
+  elements.newCount.textContent = newCount;
+  updateDashboard();
+}
+
+function updateCurrentPlayerDisplay() {
+  const player = state.players[state.currentPlayer];
+  elements.currentPlayerAvatar.textContent = player.avatar;
+  elements.currentPlayerName.textContent = player.name;
+  elements.currentPlayerScore.textContent = player.score;
+  elements.playerModeLabel.textContent = state.mode === 'single' ? 'Single Player' : 'Multiplayer: turn-based';
+}
+
+function updateDashboard() {
+  elements.playerLabel1.textContent = `${state.players[0]?.name || 'Player 1'} score`;
+  elements.playerLabel2.textContent = `${state.players[1]?.name || 'Player 2'} score`;
+  elements.playerScore1.textContent = state.players[0]?.score || 0;
+  elements.playerScore2.textContent = state.players[1]?.score || 0;
+  elements.roundsPlayed.textContent = state.roundsPlayed;
+  elements.totalWords.textContent = state.words.length;
+}
+
+function updateReviewText() {
+  const now = Date.now();
+  const nextWord = state.words.reduce((next, word) => {
+    if (!next || word.nextReview < next.nextReview) return word;
+    return next;
+  }, null);
+  if (!nextWord) {
+    elements.nextReviewText.textContent = 'No words loaded yet.';
+    return;
+  }
+  const diff = nextWord.nextReview - now;
+  if (diff <= 0) {
+    elements.nextReviewText.textContent = `Ready for review: ${nextWord.text}`;
+  } else {
+    const seconds = Math.round(diff / 1000);
+    elements.nextReviewText.textContent = `Next review for ${nextWord.text} in ${seconds}s`;
+  }
+}
+
+function showReviewPage(show) {
+  state.isReviewing = show;
+  elements.reviewPanel.classList.toggle('hidden', !show);
+  elements.settingsPanel.classList.toggle('hidden', show);
+  elements.editorPanel.classList.toggle('hidden', show);
+  elements.gamePanel.classList.toggle('hidden', show);
+  elements.dashboardPanel.classList.toggle('hidden', show);
+  elements.infoPanel.classList.toggle('hidden', show);
+  if (show) {
+    elements.reviewPlayerAvatar.textContent = state.players[state.currentPlayer].avatar;
+    elements.reviewPlayerName.textContent = state.players[state.currentPlayer].name;
+    elements.reviewPlayerScore.textContent = state.players[state.currentPlayer].score;
+  }
+}
+
+function beginRound() {
+  clearTimer();
+  timerStart = Date.now();
+  timerEnd = timerStart + state.timerSeconds * 1000;
+  const reviewMode = state.isReviewing;
+  const word = reviewMode ? getReviewWord() : getNextWord();
+
+  if (!word) {
+    if (reviewMode) {
+      elements.reviewWordText.textContent = 'No words available';
+    } else {
+      elements.wordText.textContent = 'No words available';
+    }
+    return;
+  }
+
+  state.activeWordId = word.id;
+  state.lastWord = word.text;
+  const wordTextElement = reviewMode ? elements.reviewWordText : elements.wordText;
+  const wordLabelElement = reviewMode ? elements.reviewWordLabel : elements.wordLabel;
+  wordLabelElement.textContent = reviewMode ? 'Review this word:' : 'Say this word:';
+  wordTextElement.textContent = word.text;
+
+  elements.wordCard.classList.remove('success', 'fail');
+  if (elements.reviewWordCard) {
+    elements.reviewWordCard.classList.remove('success', 'fail');
+  }
+
+  if (reviewMode) {
+    elements.reviewPlayerAvatar.textContent = state.players[state.currentPlayer].avatar;
+    elements.reviewPlayerName.textContent = state.players[state.currentPlayer].name;
+    elements.reviewPlayerScore.textContent = state.players[state.currentPlayer].score;
+  }
+
+  updateTimerBar();
+  startTimer();
+  saveState();
+  updateReviewText();
+}
+
+function updateTimerBar() {
+  const now = Date.now();
+  const totalMs = state.timerSeconds * 1000;
+  const remaining = Math.max(0, timerEnd - now);
+  const percent = totalMs > 0 ? remaining / totalMs : 0;
+  const targetElement = state.isReviewing ? elements.reviewTimerProgress : elements.timerProgress;
+  targetElement.style.transform = `scaleX(${percent})`;
+  targetElement.style.background = percent < 0.25 ? 'linear-gradient(90deg, #fb7185, #ef4444)' : 'linear-gradient(90deg, #60a5fa, #0ea5e9)';
+}
+
+function startTimer() {
+  clearTimer();
+  stopBeepLoop();
+  updateTimerBar();
+  timerId = setInterval(() => {
+    updateTimerBar();
+    if (Date.now() >= timerEnd) {
+      clearTimer();
+      triggerFeedback(false);
+      playFailTone();
+      handleAnswer(false, true);
+    }
+  }, 100);
+  startBeepLoop();
+}
+
+function clearTimer() {
+  if (timerId !== null) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+  stopBeepLoop();
+}
+
+function triggerFeedback(isPass) {
+  const card = state.isReviewing ? document.querySelector('.review-word-card') : document.querySelector('.word-card');
+  if (!card) return;
+  card.classList.remove('success', 'fail');
+  void card.offsetWidth;
+  card.classList.add(isPass ? 'success' : 'fail');
+}
+
+function handleAnswer(isPass, timedOut = false) {
+  clearTimer();
+  const word = state.words.find((w) => w.id === state.activeWordId);
+  if (!word) return;
+
+  if (isPass) {
+    word.correctCount += 1;
+    word.incorrectCount = 0;
+    word.status = word.correctCount >= 3 ? 'known' : 'review';
+    word.nextReview = Date.now() + reviewDelay(word);
+    state.players[state.currentPlayer].score += 1;
+    triggerFeedback(true);
+    playSuccessTone();
+  } else {
+    word.incorrectCount += 1;
+    word.correctCount = 0;
+    word.status = 'review';
+    word.nextReview = Date.now() + 1000 * 15;
+    if (!timedOut) {
+      triggerFeedback(false);
+      playFailTone();
+    }
+  }
+
+  state.roundsPlayed += 1;
+  state.lastWord = word.text;
+  elements.lastWordText.textContent = `${word.text} (${isPass ? 'pass' : timedOut ? 'timed out' : 'fail'})`;
+
+  if (state.mode === 'multi' && !state.isReviewing) {
+    state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
+  }
+
+  if (state.isReviewing) {
+    elements.reviewPlayerScore.textContent = state.players[state.currentPlayer].score;
+  }
+
+  saveState();
+  updateCounts();
+  updateCurrentPlayerDisplay();
+  setTimeout(beginRound, 600);
+}
+
+function reviewDelay(word) {
+  if (word.status === 'known') {
+    return 1000 * 60 * 60 * 24 * Math.max(1, word.correctCount);
+  }
+  return 1000 * 60 * 2;
+}
+
+function setMode(newMode) {
+  state.mode = newMode;
+  if (newMode === 'single') {
+    state.currentPlayer = 0;
+  }
+  Array.from(elements.multiOnly).forEach((el) => el.style.display = newMode === 'multi' ? 'flex' : 'none');
+  updateCurrentPlayerDisplay();
+  saveState();
+}
+
+function resetProgress() {
+  if (!confirm('Reset progress and start over?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state.words = DEFAULT_WORDS.map((word, index) => ({
+    id: index + 1,
+    text: word,
+    correctCount: 0,
+    incorrectCount: 0,
+    status: 'new',
+    nextReview: Date.now(),
+  }));
+  state.players = [
+    { name: elements.player1Name.value || 'James', score: 0, avatar: elements.player1Avatar.value || '🧑' },
+    { name: elements.player2Name.value || 'Michael', score: 0, avatar: elements.player2Avatar.value || '🧑‍🦱' }
+  ];
+  state.currentPlayer = 0;
+  state.roundsPlayed = 0;
+  state.isReviewing = false;
+  showReviewPage(false);
+  buildWordEditorText();
+  updateCounts();
+  updateCurrentPlayerDisplay();
+  saveState();
+  beginRound();
+}
+
+function enableReviewNow() {
+  showReviewPage(true);
+  beginRound();
+}
+
+function exitReviewMode() {
+  showReviewPage(false);
+  beginRound();
+}
+
+function saveWordList() {
+  const words = parseWordEditorText();
+  if (words.length === 0) {
+    alert('Please add at least one word before saving.');
+    return;
+  }
+
+  const existingMap = state.words.reduce((map, word) => {
+    map[word.text.toLowerCase()] = word;
+    return map;
+  }, {});
+
+  state.words = words.map((text, index) => {
+    const key = text.toLowerCase();
+    const saved = existingMap[key];
+    return saved ? { ...saved, id: index + 1, text } : {
+      id: index + 1,
+      text,
+      correctCount: 0,
+      incorrectCount: 0,
+      status: 'new',
+      nextReview: Date.now(),
+    };
+  });
+
+  updateWordCount();
+  updateCounts();
+  saveState();
+  beginRound();
+}
+
+function attachEvents() {
+  elements.modeSelect.addEventListener('change', (event) => {
+    setMode(event.target.value);
+    beginRound();
+  });
+
+  elements.player1Name.addEventListener('input', () => {
+    state.players[0].name = elements.player1Name.value || 'James';
+    updateCurrentPlayerDisplay();
+    saveState();
+  });
+
+  elements.player2Name.addEventListener('input', () => {
+    state.players[1].name = elements.player2Name.value || 'Michael';
+    updateCurrentPlayerDisplay();
+    saveState();
+  });
+
+  elements.player1Avatar.addEventListener('change', () => {
+    state.players[0].avatar = elements.player1Avatar.value;
+    updateCurrentPlayerDisplay();
+    saveState();
+  });
+
+  elements.player2Avatar.addEventListener('change', () => {
+    state.players[1].avatar = elements.player2Avatar.value;
+    updateCurrentPlayerDisplay();
+    saveState();
+  });
+
+  elements.timerSeconds.addEventListener('change', () => {
+    const value = Number(elements.timerSeconds.value);
+    state.timerSeconds = Math.max(5, Math.min(30, value));
+    saveState();
+  });
+
+  elements.loadDefaultWordsBtn.addEventListener('click', loadDefaultWords);
+  elements.saveWordListBtn.addEventListener('click', saveWordList);
+  elements.wordEditorText.addEventListener('input', updateWordCount);
+  elements.resetProgressBtn.addEventListener('click', resetProgress);
+  elements.reviewNowBtn.addEventListener('click', enableReviewNow);
+  elements.wordCard.addEventListener('click', () => {
+    if (!timerId) beginRound();
+  });
+  if (elements.reviewWordCard) {
+    elements.reviewWordCard.addEventListener('click', () => {
+      if (!timerId) beginRound();
+    });
+  }
+  elements.passBtn.addEventListener('click', () => handleAnswer(true));
+  elements.reviewPassBtn.addEventListener('click', () => handleAnswer(true));
+  elements.exitReviewBtn.addEventListener('click', exitReviewMode);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.code !== 'Space') return;
+    const tag = event.target.tagName;
+    if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tag)) return;
+    event.preventDefault();
+    if (!timerId) {
+      beginRound();
+      return;
+    }
+    handleAnswer(true);
+  });
+}
+
+function initialize() {
+  loadState();
+  elements.modeSelect.value = state.mode;
+  elements.timerSeconds.value = state.timerSeconds;
+  elements.player1Name.value = state.players[0].name;
+  elements.player2Name.value = state.players[1].name;
+  elements.player1Avatar.value = state.players[0].avatar;
+  elements.player2Avatar.value = state.players[1].avatar;
+  setMode(state.mode);
+  buildWordEditorText();
+  attachEvents();
+  updateCounts();
+  updateCurrentPlayerDisplay();
+  showReviewPage(false);
+}
+
+initialize();
