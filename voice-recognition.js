@@ -70,6 +70,57 @@
   document.body.appendChild(toggle);
   document.body.appendChild(indicator);
 
+  // --- Homophones: words that sound the same but spell differently ---
+  const HOMOPHONES = {
+    'to': ['two', 'too'],
+    'two': ['to', 'too'],
+    'too': ['to', 'two'],
+    'no': ['know'],
+    'know': ['no'],
+    'i': ['eye', 'ay'],
+    'see': ['sea', 'c'],
+    'sea': ['see'],
+    'red': ['read'],
+    'read': ['red'],
+    'blue': ['blew'],
+    'blew': ['blue'],
+    'a': ['uh', 'ah'],
+    'the': ['duh', 'da'],
+    'do': ['dew', 'due'],
+    'not': ['knot'],
+    'in': ['inn'],
+    'we': ['wee'],
+    'off': ['of'],
+    'of': ['off'],
+    'said': ['sed'],
+    'sit': ['set'],
+    'go': ['goh'],
+    'did': ['dead'],
+    'can': ['ken'],
+    'at': ['hat', 'add'],
+    'up': ['app'],
+    'is': ["it's", 'as'],
+    'it': ['hit', 'et'],
+    'am': ["i'm"],
+    'on': ['un'],
+    'if': ['of'],
+    'and': ['an', 'end', 'in'],
+    'like': ['lick'],
+    'as': ['has', 'is'],
+    'man': ['men'],
+    'cut': ['cat'],
+    'pink': ['think'],
+    'yellow': ['yell oh'],
+    'cookie': ['cookies', 'cooking'],
+    'sick': ['thick', 'six'],
+  };
+
+  function isHomophoneMatch(heard, target) {
+    if (heard === target) return true;
+    const alts = HOMOPHONES[target];
+    return alts ? alts.includes(heard) : false;
+  }
+
   // --- Recognition setup ---
   function createRecognition() {
     const r = new SpeechRecognition();
@@ -97,12 +148,12 @@
         alts.push({ text: t, conf: c });
       }
 
-      // Check all alternatives for match
+      // Check all alternatives for match (including homophones)
       let matched = false;
       let matchedAlt = '';
       for (let i = 0; i < alts.length; i++) {
         const heard = alts[i].text.toLowerCase();
-        if (heard === target || heard.includes(target) || target.includes(heard)) {
+        if (heard === target || isHomophoneMatch(heard, target) || heard.includes(target) || target.includes(heard)) {
           matched = true;
           matchedAlt = alts[i].text;
           break;
