@@ -37,8 +37,8 @@
   var toggle = document.createElement('button');
   toggle.id = 'voiceToggle';
   toggle.className = 'secondary';
-  toggle.innerHTML = 'Voice Off';
-  toggle.title = 'Toggle voice recognition - kids read the word aloud to answer';
+  toggle.innerHTML = '🎤 Voice Off';
+  toggle.title = 'Toggle voice recognition — read words aloud to answer';
   toggle.style.cssText = 'position:fixed;bottom:calc(70px + env(safe-area-inset-bottom, 0px));right:16px;z-index:1000;min-height:48px;padding:12px 18px;border-radius:24px;font-size:0.88rem;opacity:0.95;transition:all 0.2s ease;box-shadow:0 4px 16px rgba(0,0,0,0.3);';
 
   // --- Listening indicator (larger, shows target word) ---
@@ -403,14 +403,14 @@
   toggle.addEventListener('click', function() {
     enabled = !enabled;
     if (enabled) {
-      toggle.innerHTML = 'Voice On';
+      toggle.innerHTML = '🎤 Voice On';
       toggle.style.borderColor = 'rgba(34,197,94,0.4)';
       toggle.style.color = '#4ade80';
       consecutiveNoMatch = 0;
       interimAccepted = false;
       startListening();
     } else {
-      toggle.innerHTML = 'Voice Off';
+      toggle.innerHTML = '🎤 Voice Off';
       toggle.style.borderColor = '';
       toggle.style.color = '';
       stopListening();

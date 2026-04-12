@@ -172,10 +172,23 @@
   const voiceBtn = document.createElement('button');
   voiceBtn.id = 'menuVoiceToggle';
   voiceBtn.className = 'menu-btn';
-  voiceBtn.textContent = '🎤 Tap the mic button below to enable';
-  voiceBtn.style.color = 'var(--text-2)';
-  voiceBtn.style.fontSize = '0.82rem';
-  voiceBtn.disabled = true;
+  voiceBtn.textContent = '🎤 Voice Off';
+  voiceBtn.addEventListener('click', function() {
+    // Click the floating voice toggle button if it exists
+    const vt = document.getElementById('voiceToggle');
+    if (vt) {
+      vt.click();
+      // Sync label
+      setTimeout(function() {
+        voiceBtn.textContent = vt.innerHTML;
+      }, 50);
+    }
+  });
+  // Keep in sync with the floating button
+  setInterval(function() {
+    const vt = document.getElementById('voiceToggle');
+    if (vt) voiceBtn.textContent = vt.innerHTML;
+  }, 500);
   panel.appendChild(voiceBtn);
 
   document.body.appendChild(panel);
