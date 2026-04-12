@@ -39,12 +39,12 @@
   toggle.className = 'secondary';
   toggle.innerHTML = 'Voice Off';
   toggle.title = 'Toggle voice recognition - kids read the word aloud to answer';
-  toggle.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1000;min-height:52px;padding:14px 20px;border-radius:16px;font-size:0.92rem;opacity:0.95;transition:all 0.2s ease;';
+  toggle.style.cssText = 'position:fixed;bottom:calc(70px + env(safe-area-inset-bottom, 0px));right:16px;z-index:1000;min-height:48px;padding:12px 18px;border-radius:24px;font-size:0.88rem;opacity:0.95;transition:all 0.2s ease;box-shadow:0 4px 16px rgba(0,0,0,0.3);';
 
   // --- Listening indicator (larger, shows target word) ---
   var indicator = document.createElement('div');
   indicator.id = 'voiceIndicator';
-  indicator.style.cssText = 'position:fixed;bottom:86px;right:20px;z-index:1000;padding:12px 18px;border-radius:14px;font-size:1rem;font-weight:800;display:none;background:rgba(34,197,94,0.15);color:#4ade80;border:2px solid rgba(34,197,94,0.3);min-width:160px;text-align:center;transition:all 0.2s ease;';
+  indicator.style.cssText = 'position:fixed;bottom:calc(126px + env(safe-area-inset-bottom, 0px));right:16px;z-index:1000;padding:10px 16px;border-radius:14px;font-size:0.88rem;font-weight:700;display:none;background:rgba(34,197,94,0.15);color:#4ade80;border:1.5px solid rgba(34,197,94,0.25);min-width:140px;text-align:center;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
   indicator.textContent = 'Listening...';
 
   document.body.appendChild(toggle);
