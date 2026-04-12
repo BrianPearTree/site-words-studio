@@ -20,53 +20,18 @@
   let consecutiveNoMatch = 0;
   let interimAccepted = false; // guard against double-accept from interim+final
 
-  // --- Persistent session log ---
-  const voiceLog = [];
-
+  // --- Logging (console only, no UI panel) ---
   function logAttempt(entry) {
     entry.time = new Date().toLocaleTimeString();
-    voiceLog.push(entry);
-    updateLogPanel();
+    console.log('🎤', entry);
   }
 
   // --- Inject CSS for mic pulse animation ---
-  const style = document.createElement('style');
+  var style = document.createElement('style');
   style.textContent =
     '@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.5)}50%{box-shadow:0 0 0 14px rgba(34,197,94,0)}}' +
     '.mic-pulse{animation:micPulse 1.4s ease-in-out infinite}';
   document.head.appendChild(style);
-
-  // --- On-screen log panel ---
-  const logPanel = document.createElement('div');
-  logPanel.id = 'voiceLog';
-  logPanel.style.cssText = 'position:fixed;bottom:86px;right:20px;z-index:999;max-height:320px;width:300px;overflow-y:auto;padding:12px;border-radius:14px;font-size:0.75rem;font-family:monospace;display:none;background:rgba(10,10,20,0.94);color:#94a3b8;border:1.5px solid rgba(255,255,255,0.08);line-height:1.6;';
-  document.body.appendChild(logPanel);
-
-  function updateLogPanel() {
-    if (!enabled) return;
-    const last10 = voiceLog.slice(-10);
-    logPanel.innerHTML = '<div style="color:#f5c518;font-weight:800;margin-bottom:6px;font-size:0.85rem;">Voice Log</div>' +
-      last10.map(function(e) {
-        var icon = e.match ? '&check;' : e.type === 'error' ? '&#9888;' : '&cross;';
-        var iconColor = e.match ? '#4ade80' : e.type === 'error' ? '#f87171' : '#f87171';
-        if (e.type === 'error') {
-          return '<div style="color:#f87171;padding:2px 0"><span style="color:' + iconColor + '">' + icon + '</span> ' + e.time + ' ' + e.error + '</div>';
-        }
-        if (e.type === 'hint') {
-          return '<div style="color:#fbbf24;padding:2px 0;font-style:italic">' + e.time + ' ' + e.message + '</div>';
-        }
-        var altsStr = (e.alts || []).map(function(a) {
-          var color = a.conf > 80 ? '#4ade80' : a.conf > 50 ? '#22d3ee' : a.conf > 20 ? '#fbbf24' : '#f87171';
-          return '<span style="color:' + color + ';font-weight:' + (a.conf > 80 ? '700' : '400') + '">"' + a.text + '" ' + a.conf + '%</span>';
-        }).join(', ');
-        return '<div style="padding:2px 0"><span style="color:' + iconColor + '">' + icon + '</span> ' + e.time +
-          ' <span style="color:#60a5fa">want:</span> <strong style="color:#e2e8f0">"' + e.target + '"</strong>' +
-          (e.interim ? ' <span style="color:#a78bfa;font-size:0.65rem">[interim]</span>' : '') +
-          '<br>  ' + altsStr + '</div>';
-      }).join('') +
-      '<div style="color:#475569;margin-top:6px;border-top:1px solid rgba(255,255,255,0.06);padding-top:4px">' + voiceLog.length + ' attempts total</div>';
-    logPanel.style.display = 'block';
-  }
 
   // --- Create the mic toggle button ---
   var toggle = document.createElement('button');
@@ -449,7 +414,6 @@
       toggle.style.borderColor = '';
       toggle.style.color = '';
       stopListening();
-      logPanel.style.display = 'none';
     }
   });
 

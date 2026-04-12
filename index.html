@@ -18,8 +18,21 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="batman-patch.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bat: { gold: '#ffd60a', dark: '#1c1c1e' },
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body>
+<body class="dark bg-black dark:bg-black text-white transition-colors duration-300">
   <div class="app-shell">
     <header class="hero">
       <div class="hero-copy">
@@ -445,6 +458,7 @@
   </div>
 
   <script src="script.js"></script>
+  <script src="navigation.js"></script>
   <script src="theme-switcher.js"></script>
   <script src="voice-recognition.js"></script>
 </body>
