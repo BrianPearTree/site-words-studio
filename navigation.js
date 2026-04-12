@@ -68,13 +68,14 @@
       color: var(--accent);
     }
 
-    /* Hide all panels by default */
+    /* Hide all panels by default, but NOT the hero-card inside .hero */
     .panel, .hero, .studio-grid {
       display: none !important;
     }
 
     /* Show panels for active tab */
     [data-active-tab="play"] .hero { display: grid !important; }
+    [data-active-tab="play"] .hero .hero-card { display: block !important; }
     [data-active-tab="play"] .game-panel { display: block !important; }
 
     [data-active-tab="stats"] .coach-panel { display: block !important; }

@@ -345,7 +345,7 @@ body {
 }
 
 /* ======= HERO ======= */
-.hero { display: grid; gap: 0; margin-bottom: 10px; }
+.hero { display: grid !important; grid-template-columns: 1fr !important; gap: 0 !important; margin-bottom: 10px !important; }
 
 .hero-copy {
   position: relative;
@@ -777,12 +777,13 @@ button:disabled { opacity: 0.3; cursor: default; transform: none !important; }
   border-radius: 16px; background: var(--surface-2); border: none;
 }
 .status-chip {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 0; border-bottom: 1px solid var(--separator);
+  display: flex !important; align-items: center !important; justify-content: space-between !important;
+  gap: 8px !important; padding: 8px 0 !important; border-bottom: 1px solid var(--separator) !important;
+  border-radius: 0 !important; background: transparent !important;
 }
-.status-chip:last-child { border-bottom: none; }
-.status-chip span { font-size: 0.78rem; font-weight: 500; color: var(--text-2); }
-.status-chip strong { font-size: 0.85rem; font-weight: 700; color: var(--text-1); }
+.status-chip:last-child { border-bottom: none !important; }
+.status-chip span { font-size: 0.78rem !important; font-weight: 500 !important; color: var(--text-2) !important; flex-shrink: 0; }
+.status-chip strong { font-size: 0.85rem !important; font-weight: 700 !important; color: var(--text-1) !important; text-align: right; }
 
 /* ======= SETS ======= */
 .sets-panel, .learner-stats-panel { margin-bottom: 10px; }
@@ -916,14 +917,22 @@ body.review-active { overflow: hidden; }
 ::selection { background: var(--accent-soft); color: var(--text-1); }
 
 /* ======= RESPONSIVE ======= */
+
+/* Override original style.css media query at 860px */
+@media (min-width: 860px) {
+  .hero { grid-template-columns: 1fr !important; }
+  .status-chip {
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 8px 0 !important;
+  }
+}
+
 @media (min-width: 700px) {
   .app-shell { max-width: 680px; }
   .studio-grid { grid-template-columns: 1fr 1fr; }
   .session-banner { grid-template-columns: 1fr 1fr; }
   .coach-grid { grid-template-columns: repeat(4, 1fr); }
-  .hero { grid-template-columns: 1.4fr 1fr; }
-  .hero-copy { border-radius: 20px 0 0 0; }
-  .hero-card { border-radius: 0 20px 0 0; border-top: none; border-left: 1px solid var(--separator); }
 }
 
 @media (max-width: 400px) {
