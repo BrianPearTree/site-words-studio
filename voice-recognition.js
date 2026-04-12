@@ -2,6 +2,7 @@
    Voice Recognition for Sight Words Studio
    Uses Web Speech API — runs locally in browser
    Opt-in via toggle, no external APIs
+   Tuned for kids ages 5-10
    ============================================ */
 (function() {
   'use strict';
@@ -9,13 +10,15 @@
   // Check browser support
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    console.log('🎤 Speech recognition not supported in this browser');
+    console.log('Speech recognition not supported in this browser');
     return;
   }
 
   let recognition = null;
   let listening = false;
   let enabled = false;
+  let consecutiveNoMatch = 0;
+  let interimAccepted = false; // guard against double-accept from interim+final
 
   // --- Persistent session log ---
   const voiceLog = [];
@@ -23,185 +26,378 @@
   function logAttempt(entry) {
     entry.time = new Date().toLocaleTimeString();
     voiceLog.push(entry);
-    // Keep on-screen log updated
     updateLogPanel();
   }
+
+  // --- Inject CSS for mic pulse animation ---
+  const style = document.createElement('style');
+  style.textContent =
+    '@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.5)}50%{box-shadow:0 0 0 14px rgba(34,197,94,0)}}' +
+    '.mic-pulse{animation:micPulse 1.4s ease-in-out infinite}';
+  document.head.appendChild(style);
 
   // --- On-screen log panel ---
   const logPanel = document.createElement('div');
   logPanel.id = 'voiceLog';
-  logPanel.style.cssText = 'position:fixed;bottom:76px;right:20px;z-index:999;max-height:280px;width:280px;overflow-y:auto;padding:10px;border-radius:14px;font-size:0.75rem;font-family:monospace;display:none;background:rgba(10,10,20,0.92);color:#94a3b8;border:1.5px solid rgba(255,255,255,0.08);line-height:1.5;';
+  logPanel.style.cssText = 'position:fixed;bottom:86px;right:20px;z-index:999;max-height:320px;width:300px;overflow-y:auto;padding:12px;border-radius:14px;font-size:0.75rem;font-family:monospace;display:none;background:rgba(10,10,20,0.94);color:#94a3b8;border:1.5px solid rgba(255,255,255,0.08);line-height:1.6;';
   document.body.appendChild(logPanel);
 
   function updateLogPanel() {
     if (!enabled) return;
     const last10 = voiceLog.slice(-10);
-    logPanel.innerHTML = '<div style="color:#f5c518;font-weight:800;margin-bottom:6px;">Voice Log</div>' +
-      last10.map(e => {
-        const icon = e.match ? '✅' : e.type === 'error' ? '⚠️' : '❌';
+    logPanel.innerHTML = '<div style="color:#f5c518;font-weight:800;margin-bottom:6px;font-size:0.85rem;">Voice Log</div>' +
+      last10.map(function(e) {
+        var icon = e.match ? '&check;' : e.type === 'error' ? '&#9888;' : '&cross;';
+        var iconColor = e.match ? '#4ade80' : e.type === 'error' ? '#f87171' : '#f87171';
         if (e.type === 'error') {
-          return '<div style="color:#f87171">' + icon + ' ' + e.time + ' ' + e.error + '</div>';
+          return '<div style="color:#f87171;padding:2px 0"><span style="color:' + iconColor + '">' + icon + '</span> ' + e.time + ' ' + e.error + '</div>';
         }
-        const altsStr = (e.alts || []).map(a =>
-          '<span style="color:' + (a.conf > 50 ? '#4ade80' : a.conf > 20 ? '#fbbf24' : '#f87171') + '">"' + a.text + '" ' + a.conf + '%</span>'
-        ).join(', ');
-        return '<div>' + icon + ' ' + e.time +
-          ' <span style="color:#60a5fa">want:</span> "' + e.target + '"' +
+        if (e.type === 'hint') {
+          return '<div style="color:#fbbf24;padding:2px 0;font-style:italic">' + e.time + ' ' + e.message + '</div>';
+        }
+        var altsStr = (e.alts || []).map(function(a) {
+          var color = a.conf > 80 ? '#4ade80' : a.conf > 50 ? '#22d3ee' : a.conf > 20 ? '#fbbf24' : '#f87171';
+          return '<span style="color:' + color + ';font-weight:' + (a.conf > 80 ? '700' : '400') + '">"' + a.text + '" ' + a.conf + '%</span>';
+        }).join(', ');
+        return '<div style="padding:2px 0"><span style="color:' + iconColor + '">' + icon + '</span> ' + e.time +
+          ' <span style="color:#60a5fa">want:</span> <strong style="color:#e2e8f0">"' + e.target + '"</strong>' +
+          (e.interim ? ' <span style="color:#a78bfa;font-size:0.65rem">[interim]</span>' : '') +
           '<br>  ' + altsStr + '</div>';
       }).join('') +
-      '<div style="color:#475569;margin-top:6px;">' + voiceLog.length + ' attempts total</div>';
+      '<div style="color:#475569;margin-top:6px;border-top:1px solid rgba(255,255,255,0.06);padding-top:4px">' + voiceLog.length + ' attempts total</div>';
     logPanel.style.display = 'block';
   }
 
   // --- Create the mic toggle button ---
-  const toggle = document.createElement('button');
+  var toggle = document.createElement('button');
   toggle.id = 'voiceToggle';
   toggle.className = 'secondary';
-  toggle.innerHTML = '🎤 Voice Off';
-  toggle.title = 'Toggle voice recognition — kids read the word aloud to answer';
-  toggle.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1000;min-height:48px;padding:12px 18px;border-radius:16px;font-size:0.88rem;opacity:0.9;';
+  toggle.innerHTML = 'Voice Off';
+  toggle.title = 'Toggle voice recognition - kids read the word aloud to answer';
+  toggle.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1000;min-height:52px;padding:14px 20px;border-radius:16px;font-size:0.92rem;opacity:0.95;transition:all 0.2s ease;';
 
-  // --- Listening indicator ---
-  const indicator = document.createElement('div');
+  // --- Listening indicator (larger, shows target word) ---
+  var indicator = document.createElement('div');
   indicator.id = 'voiceIndicator';
-  indicator.style.cssText = 'position:fixed;bottom:76px;right:20px;z-index:1000;padding:8px 14px;border-radius:12px;font-size:0.82rem;font-weight:800;display:none;background:rgba(34,197,94,0.15);color:#4ade80;border:1.5px solid rgba(34,197,94,0.25);';
-  indicator.textContent = '🎤 Listening...';
+  indicator.style.cssText = 'position:fixed;bottom:86px;right:20px;z-index:1000;padding:12px 18px;border-radius:14px;font-size:1rem;font-weight:800;display:none;background:rgba(34,197,94,0.15);color:#4ade80;border:2px solid rgba(34,197,94,0.3);min-width:160px;text-align:center;transition:all 0.2s ease;';
+  indicator.textContent = 'Listening...';
 
   document.body.appendChild(toggle);
   document.body.appendChild(indicator);
 
-  // --- Homophones: words that sound the same but spell differently ---
-  const HOMOPHONES = {
-    'to': ['two', 'too'],
-    'two': ['to', 'too'],
-    'too': ['to', 'two'],
-    'no': ['know'],
-    'know': ['no'],
-    'i': ['eye', 'ay'],
-    'see': ['sea', 'c'],
-    'sea': ['see'],
-    'red': ['read'],
-    'read': ['red'],
-    'blue': ['blew'],
-    'blew': ['blue'],
-    'a': ['uh', 'ah'],
-    'the': ['duh', 'da'],
-    'do': ['dew', 'due'],
-    'not': ['knot'],
-    'in': ['inn'],
-    'we': ['wee'],
-    'off': ['of'],
-    'of': ['off'],
-    'said': ['sed'],
-    'sit': ['set'],
-    'go': ['goh'],
-    'did': ['dead'],
-    'can': ['ken'],
-    'at': ['hat', 'add'],
-    'up': ['app'],
-    'is': ["it's", 'as'],
-    'it': ['hit', 'et'],
-    'am': ["i'm"],
-    'on': ['un'],
-    'if': ['of'],
-    'and': ['an', 'end', 'in'],
-    'like': ['lick'],
-    'as': ['has', 'is'],
-    'man': ['men'],
-    'cut': ['cat'],
-    'pink': ['think'],
-    'yellow': ['yell oh'],
-    'cookie': ['cookies', 'cooking'],
-    'sick': ['thick', 'six'],
+  // --- Homophones: words that sound the same or kids commonly mishear ---
+  var HOMOPHONES = {
+    'to': ['two', 'too', 'do', 'tu'],
+    'two': ['to', 'too', 'do', 'tu'],
+    'too': ['to', 'two', 'do', 'tu'],
+    'no': ['know', 'nah', 'nope', 'now'],
+    'know': ['no', 'now'],
+    'i': ['eye', 'ay', 'hi', 'ah'],
+    'see': ['sea', 'c', 'si', 'she'],
+    'sea': ['see', 'she'],
+    'red': ['read', 'wed', 'wren'],
+    'read': ['red', 'weed', 'reed'],
+    'blue': ['blew', 'boo'],
+    'blew': ['blue', 'boo'],
+    'a': ['uh', 'ah', 'hey', 'eh', 'the'],
+    'the': ['duh', 'da', 'de', 'a', 'uh', 'fuh', 'vuh'],
+    'do': ['dew', 'due', 'to', 'boo'],
+    'not': ['knot', 'nut', 'nah', 'lot'],
+    'in': ['inn', 'an', 'on', 'and', 'him'],
+    'we': ['wee', 'oui', 'me', 'whee'],
+    'off': ['of', 'all', 'aw'],
+    'of': ['off', 'up', 'uh', 'love'],
+    'said': ['sed', 'set', 'says', 'say', 'shed'],
+    'sit': ['set', 'sip', 'sick', 'hit'],
+    'go': ['goh', 'no', 'oh', 'so'],
+    'did': ['dead', 'dad', 'dig', 'good'],
+    'can': ['ken', 'come', 'kin'],
+    'at': ['hat', 'add', 'it', 'that', 'cat'],
+    'up': ['app', 'uh', 'of', 'cup'],
+    'is': ["it's", 'as', 'his', 'if', 'this'],
+    'it': ['hit', 'et', 'eat', 'is', 'if'],
+    'am': ["i'm", 'um', 'and', 'ham'],
+    'on': ['un', 'an', 'in', 'one', 'own'],
+    'if': ['of', 'is', 'it'],
+    'and': ['an', 'end', 'in', 'hand', 'ant', 'am'],
+    'like': ['lick', 'light', 'mike'],
+    'as': ['has', 'is', 'us', 'oz'],
+    'man': ['men', 'mom', 'my'],
+    'cut': ['cat', 'cup', 'come'],
+    'pink': ['think', 'king', 'drink'],
+    'yellow': ['yell oh', 'hello', 'yell', 'jello'],
+    'cookie': ['cookies', 'cooking', 'cookie'],
+    'sick': ['thick', 'six', 'sit', 'sing'],
+    'he': ['she', 'me', 'we', 'be', 'heat', 'hee'],
+    'she': ['he', 'see', 'me'],
+    'me': ['my', 'we', 'be', 'knee'],
+    'be': ['me', 'we', 'bee', 'pee', 'key'],
+    'was': ['what', 'us', 'want', 'with'],
+    'for': ['four', 'far', 'from', 'or', 'more', 'door'],
+    'are': ['our', 'or', 'ah', 'r'],
+    'but': ['bet', 'bot', 'bat', 'put', 'butt'],
+    'had': ['head', 'hat', 'has', 'hand'],
+    'has': ['had', 'his', 'as', 'have'],
+    'him': ['them', 'in', 'ham'],
+    'his': ['is', 'has', 'her'],
+    'her': ['here', 'hair', 'his'],
+    'you': ['new', 'your', 'yoo'],
+    'they': ['the', 'day', 'say', 'there'],
+    'that': ['the', 'at', 'dad', 'this'],
+    'this': ['the', 'is', 'that', 'these'],
+    'with': ['will', 'wish', 'was', 'which'],
+    'all': ['off', 'or', 'aw', 'owl'],
+    'my': ['me', 'by', 'why', 'buy'],
+    'come': ['can', 'gum', 'calm', 'some'],
+    'look': ['looked', 'like', 'book', 'luke'],
+    'big': ['pig', 'bag', 'dig', 'beg'],
+    'get': ['got', 'jet', 'set', 'good'],
+    'out': ['ow', 'ouch', 'about', 'shout'],
+    'day': ['they', 'say', 'hey', 'play'],
+    'one': ['won', 'on', 'want', 'once'],
+    'make': ['may', 'made', 'mike', 'take'],
+    'say': ['said', 'they', 'day', 'say'],
+    'play': ['pray', 'plate', 'place', 'day'],
+    'run': ['ran', 'fun', 'rain', 'won'],
+    'so': ['show', 'go', 'no', 'slow'],
+    'an': ['and', 'on', 'in', 'am'],
+    'or': ['are', 'our', 'for', 'more'],
+    'by': ['buy', 'bye', 'my', 'why', 'be'],
+    'what': ['was', 'want', 'wet', 'white'],
+    'were': ['where', 'we', 'work', 'word', 'war'],
+    'there': ['they', 'their', 'the', 'where', 'dare'],
+    'your': ['you', 'you are', "you're"],
+    'have': ['has', 'half', 'had'],
+    'from': ['for', 'from', 'fun'],
+    'here': ['hear', 'her', 'hair'],
+    'down': ['done', 'don', 'town'],
+    'then': ['them', 'the', 'than', 'when'],
+    'been': ['being', 'been', 'bin', 'ben'],
+    'eat': ['it', 'at', 'heat', 'ate'],
+    'yes': ['yep', 'yeah', 'yess'],
+    'fun': ['from', 'run', 'fan', 'sun'],
+    'jump': ['dump', 'jam', 'chump'],
+    'stop': ['top', 'stab', 'stock'],
+    'help': ['held', 'yelp', 'hill'],
+    'good': ['could', 'god', 'got', 'goo'],
+    'put': ['but', 'pet', 'pit', 'putt'],
+    'just': ['just', 'dust', 'must'],
   };
 
   function isHomophoneMatch(heard, target) {
     if (heard === target) return true;
-    const alts = HOMOPHONES[target];
-    return alts ? alts.includes(heard) : false;
+    var alts = HOMOPHONES[target];
+    return alts ? alts.indexOf(heard) !== -1 : false;
+  }
+
+  // --- Levenshtein distance for fuzzy/phonetic matching ---
+  function levenshtein(a, b) {
+    var m = a.length, n = b.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    var d = [];
+    for (var i = 0; i <= m; i++) {
+      d[i] = [i];
+    }
+    for (var j = 0; j <= n; j++) {
+      d[0][j] = j;
+    }
+    for (var i = 1; i <= m; i++) {
+      for (var j = 1; j <= n; j++) {
+        var cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      }
+    }
+    return d[m][n];
+  }
+
+  // Fuzzy match: accept if edit distance is within tolerance scaled by word length
+  function isFuzzyMatch(heard, target) {
+    if (heard.length <= 1 || target.length <= 1) return heard === target;
+    var dist = levenshtein(heard, target);
+    // For short words (2-3 chars), allow 1 edit. For longer words, allow ~40% edits.
+    var maxDist = target.length <= 3 ? 1 : Math.ceil(target.length * 0.4);
+    return dist <= maxDist;
+  }
+
+  // --- Check if a transcript contains the target word (kids say "the word is ___") ---
+  function extractTargetFromPhrase(transcript, target) {
+    var words = transcript.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/);
+    for (var i = 0; i < words.length; i++) {
+      if (words[i] === target) return true;
+      if (isHomophoneMatch(words[i], target)) return true;
+      if (isFuzzyMatch(words[i], target)) return true;
+    }
+    return false;
+  }
+
+  // --- Full matching logic: checks exact, homophone, fuzzy, containment ---
+  function isMatch(heard, target) {
+    var h = heard.toLowerCase().trim();
+    var t = target.toLowerCase().trim();
+    // Exact
+    if (h === t) return true;
+    // Homophone
+    if (isHomophoneMatch(h, t)) return true;
+    // Fuzzy (edit distance)
+    if (isFuzzyMatch(h, t)) return true;
+    // Target appears anywhere in what was heard (kid says a sentence)
+    if (h.length > t.length && extractTargetFromPhrase(h, t)) return true;
+    // Heard is contained in target or vice-versa (partial utterance)
+    if (t.length > 2 && h.length > 2 && (h.indexOf(t) !== -1 || t.indexOf(h) !== -1)) return true;
+    return false;
+  }
+
+  // --- Get current target word ---
+  function getTarget() {
+    var wordEl = document.getElementById('wordText');
+    if (!wordEl) return null;
+    var t = wordEl.textContent.trim().toLowerCase();
+    if (!t || t === 'tap start to begin' || t === 'pick a set to begin') return null;
+    return t;
+  }
+
+  // --- Accept a match: trigger the pass button ---
+  function acceptMatch(matchedText, isInterim) {
+    if (interimAccepted) return; // prevent double-fire
+    interimAccepted = true;
+    consecutiveNoMatch = 0;
+
+    indicator.textContent = '"' + matchedText + '" - Correct!';
+    indicator.style.background = 'rgba(34,197,94,0.25)';
+    indicator.style.color = '#4ade80';
+    indicator.style.borderColor = 'rgba(34,197,94,0.5)';
+
+    var passBtn = document.getElementById('passBtn');
+    if (passBtn && !passBtn.disabled) passBtn.click();
+
+    // Reset the guard after a delay so next word can be recognized
+    setTimeout(function() { interimAccepted = false; }, 800);
   }
 
   // --- Recognition setup ---
   function createRecognition() {
-    const r = new SpeechRecognition();
+    var r = new SpeechRecognition();
     r.lang = 'en-US';
     r.continuous = false;
-    r.interimResults = false;
-    r.maxAlternatives = 5; // Check multiple guesses
+    r.interimResults = true;  // catch partial matches faster for kids
+    r.maxAlternatives = 5;
 
     r.onresult = function(event) {
       if (!enabled) return;
 
-      // Get the current word on screen
-      const wordEl = document.getElementById('wordText');
-      if (!wordEl) return;
-      const target = wordEl.textContent.trim().toLowerCase();
+      var target = getTarget();
+      if (!target) return;
 
-      // Skip non-word states
-      if (!target || target === 'tap start to begin' || target === 'pick a set to begin') return;
+      // Process all result sets (interim and final)
+      for (var ri = event.resultIndex; ri < event.results.length; ri++) {
+        var result = event.results[ri];
+        var isFinal = result.isFinal;
 
-      // Collect ALL alternatives with confidence
-      const alts = [];
-      for (let i = 0; i < event.results[0].length; i++) {
-        const t = event.results[0][i].transcript.trim();
-        const c = parseFloat((event.results[0][i].confidence * 100).toFixed(1));
-        alts.push({ text: t, conf: c });
-      }
+        // Collect alternatives
+        var alts = [];
+        for (var i = 0; i < result.length; i++) {
+          var t = result[i].transcript.trim();
+          var c = parseFloat((result[i].confidence * 100).toFixed(1));
+          alts.push({ text: t, conf: c });
+        }
 
-      // Check all alternatives for match (including homophones)
-      let matched = false;
-      let matchedAlt = '';
-      for (let i = 0; i < alts.length; i++) {
-        const heard = alts[i].text.toLowerCase();
-        if (heard === target || isHomophoneMatch(heard, target) || heard.includes(target) || target.includes(heard)) {
-          matched = true;
-          matchedAlt = alts[i].text;
-          break;
+        if (!isFinal) {
+          // --- Interim result: show "hearing..." feedback ---
+          var interimText = alts[0] ? alts[0].text : '';
+          indicator.textContent = 'Say: "' + target + '" - hearing: "' + interimText + '"...';
+          indicator.style.background = 'rgba(99,102,241,0.15)';
+          indicator.style.color = '#a5b4fc';
+          indicator.style.borderColor = 'rgba(99,102,241,0.3)';
+
+          // Auto-accept high-confidence interim match (>80% or exact match)
+          for (var i = 0; i < alts.length; i++) {
+            if (isMatch(alts[i].text, target) && (alts[i].conf > 80 || alts[i].text.toLowerCase().trim() === target)) {
+              logAttempt({ target: target, alts: alts, match: true, matchedAlt: alts[i].text, interim: true });
+              console.log('Voice target: "' + target + '" INTERIM MATCH', alts);
+              acceptMatch(alts[i].text, true);
+              return;
+            }
+          }
+          continue;
+        }
+
+        // --- Final result ---
+        var matched = false;
+        var matchedAlt = '';
+        for (var i = 0; i < alts.length; i++) {
+          if (isMatch(alts[i].text, target)) {
+            matched = true;
+            matchedAlt = alts[i].text;
+            break;
+          }
+        }
+
+        logAttempt({ target: target, alts: alts, match: matched, matchedAlt: matchedAlt, interim: false });
+        console.log('Voice target: "' + target + '"', matched ? 'MATCH' : 'NO MATCH', alts);
+
+        if (matched) {
+          acceptMatch(matchedAlt, false);
+        } else {
+          consecutiveNoMatch++;
+          indicator.textContent = 'Say: "' + target + '" - heard: "' + (alts[0] ? alts[0].text : '?') + '"';
+          indicator.style.background = 'rgba(245,158,11,0.15)';
+          indicator.style.color = '#fbbf24';
+          indicator.style.borderColor = 'rgba(245,158,11,0.3)';
+
+          // After 3 consecutive no-matches, show a hint
+          if (consecutiveNoMatch >= 3) {
+            logAttempt({ type: 'hint', message: 'Try saying it louder and clearer!' });
+            indicator.textContent = 'Say "' + target + '" louder!';
+            indicator.style.background = 'rgba(251,191,36,0.2)';
+            indicator.style.color = '#fbbf24';
+            consecutiveNoMatch = 0; // reset so the hint repeats every 3
+          }
         }
       }
 
-      // Log to persistent log
-      logAttempt({ target: target, alts: alts, match: matched, matchedAlt: matchedAlt });
-      console.log('🎤 Target: "' + target + '"', matched ? '✅' : '❌', alts);
-
-      if (matched) {
-        indicator.textContent = '✅ "' + matchedAlt + '"';
-        indicator.style.background = 'rgba(34,197,94,0.2)';
-        indicator.style.color = '#4ade80';
-        const passBtn = document.getElementById('passBtn');
-        if (passBtn && !passBtn.disabled) passBtn.click();
-      } else {
-        indicator.textContent = '🔄 "' + alts[0].text + '" ≠ "' + target + '"';
-        indicator.style.background = 'rgba(245,158,11,0.15)';
-        indicator.style.color = '#fbbf24';
-      }
-
       // Restart listening after a short pause
-      setTimeout(startListening, 600);
+      setTimeout(startListening, 250);
     };
 
     r.onerror = function(event) {
       if (event.error === 'no-speech') {
-        // Normal silence — just restart, don't log
-        if (enabled) setTimeout(startListening, 300);
+        if (enabled) setTimeout(startListening, 150);
         return;
       }
       if (event.error === 'aborted') {
-        if (enabled) setTimeout(startListening, 300);
+        if (enabled) setTimeout(startListening, 150);
         return;
       }
       logAttempt({ type: 'error', error: event.error });
-      console.log('🎤 Speech error:', event.error);
-      if (enabled) setTimeout(startListening, 1000);
+      console.log('Voice error:', event.error);
+      // On serious errors, recreate recognition from scratch
+      if (event.error === 'network' || event.error === 'service-not-allowed' || event.error === 'not-allowed') {
+        destroyRecognition();
+      }
+      if (enabled) setTimeout(startListening, 500);
     };
 
     r.onend = function() {
       listening = false;
-      if (enabled) setTimeout(startListening, 300);
+      if (enabled) setTimeout(startListening, 150);
     };
 
     return r;
   }
+
+  function destroyRecognition() {
+    if (recognition) {
+      try { recognition.abort(); } catch(e) {}
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition = null;
+    }
+    listening = false;
+  }
+
+  var recreateCount = 0;
 
   function startListening() {
     if (!enabled || listening) return;
@@ -209,14 +405,23 @@
       if (!recognition) recognition = createRecognition();
       recognition.start();
       listening = true;
+      recreateCount = 0;
+      var target = getTarget();
       indicator.style.display = 'block';
-      indicator.textContent = '🎤 Listening...';
+      indicator.textContent = target ? 'Say: "' + target + '"' : 'Listening...';
       indicator.style.background = 'rgba(34,197,94,0.15)';
       indicator.style.color = '#4ade80';
+      indicator.style.borderColor = 'rgba(34,197,94,0.3)';
+      toggle.classList.add('mic-pulse');
     } catch (e) {
-      // Already started or other issue — retry
       listening = false;
-      if (enabled) setTimeout(startListening, 500);
+      // If we fail repeatedly, full destroy and recreate
+      recreateCount++;
+      if (recreateCount > 2) {
+        destroyRecognition();
+        recreateCount = 0;
+      }
+      if (enabled) setTimeout(startListening, 300);
     }
   }
 
@@ -226,18 +431,21 @@
       try { recognition.abort(); } catch(e) {}
     }
     indicator.style.display = 'none';
+    toggle.classList.remove('mic-pulse');
   }
 
   // --- Toggle handler ---
   toggle.addEventListener('click', function() {
     enabled = !enabled;
     if (enabled) {
-      toggle.innerHTML = '🎤 Voice On';
+      toggle.innerHTML = 'Voice On';
       toggle.style.borderColor = 'rgba(34,197,94,0.4)';
       toggle.style.color = '#4ade80';
+      consecutiveNoMatch = 0;
+      interimAccepted = false;
       startListening();
     } else {
-      toggle.innerHTML = '🎤 Voice Off';
+      toggle.innerHTML = 'Voice Off';
       toggle.style.borderColor = '';
       toggle.style.color = '';
       stopListening();
@@ -245,5 +453,24 @@
     }
   });
 
-  console.log('🎤 Voice recognition ready (tap mic button to enable)');
+  // --- Watch for word changes to reset state ---
+  var lastTarget = null;
+  setInterval(function() {
+    if (!enabled) return;
+    var target = getTarget();
+    if (target && target !== lastTarget) {
+      lastTarget = target;
+      interimAccepted = false;
+      consecutiveNoMatch = 0;
+      // Update indicator to show new target word
+      if (listening) {
+        indicator.textContent = 'Say: "' + target + '"';
+        indicator.style.background = 'rgba(34,197,94,0.15)';
+        indicator.style.color = '#4ade80';
+        indicator.style.borderColor = 'rgba(34,197,94,0.3)';
+      }
+    }
+  }, 200);
+
+  console.log('Voice recognition ready (tap mic button to enable)');
 })();
