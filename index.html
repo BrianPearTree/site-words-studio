@@ -17,15 +17,29 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="batman-patch.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bat: { gold: '#ffd60a', dark: '#1c1c1e' },
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body>
+<body class="dark bg-black dark:bg-black text-white transition-colors duration-300">
   <div class="app-shell">
     <header class="hero">
       <div class="hero-copy">
-        <div class="eyebrow">Sight Words Studio</div>
+        <div class="eyebrow"><img src="icons/batman.svg" alt="Batman" class="bat-logo-inline" /> Sight Words Studio</div>
         <h1>Make practice feel like a tiny celebration.</h1>
         <p>
-          Fast rounds, review-ready words, kinder pacing, and a dashboard that helps you spot progress at a glance.
+          Fast rounds, review-ready words, kinder pacing, and a dashboard that helps you spot progress at a glance. Even Batman started with sight words.
         </p>
       </div>
       <div class="hero-card panel">
@@ -82,6 +96,7 @@
             <option value="🌙">🌙</option>
             <option value="⭐">⭐</option>
             <option value="☄️">☄️</option>
+            <option value="🦇">🦇</option>
             <option value="🛰️">🛰️</option>
           </select>
         </div>
@@ -223,6 +238,7 @@
         <button id="stopSessionBtn" class="secondary">Stop Session</button>
       </div>
 
+      <div class="bat-guardian"><img src="icons/batman.svg" alt="The Dark Knight watches over your words" class="bat-guardian-img" /></div>
       <div class="word-stage">
         <div class="stage-topline">
           <span id="wordLabel">Ready?</span>
@@ -442,5 +458,8 @@
   </div>
 
   <script src="script.js"></script>
+  <script src="navigation.js"></script>
+  <script src="theme-switcher.js"></script>
+  <script src="voice-recognition.js"></script>
 </body>
 </html>

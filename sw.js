@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sight-words-studio-v4';
+const CACHE_NAME = 'sight-words-studio-v10';
 const APP_SHELL = [
   './',
   './index.html',
