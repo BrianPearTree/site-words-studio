@@ -3,463 +3,186 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sight Words Studio</title>
-  <meta name="theme-color" content="#0f766e" />
+  <title>Sight Words Mission</title>
+  <meta name="theme-color" content="#176b5b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Word Studio" />
+  <meta name="apple-mobile-web-app-title" content="Word Mission" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta
     name="description"
-    content="A playful installable sight words coach with quick sessions, review mode, streaks, and rich progress tracking."
+    content="A parent-led sight words practice app with weekly word additions, timed rounds, and mastery tracking."
   />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="batman-patch.css" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            bat: { gold: '#ffd60a', dark: '#1c1c1e' },
-          }
-        }
-      }
-    }
-  </script>
 </head>
-<body class="dark bg-black dark:bg-black text-white transition-colors duration-300">
+<body>
   <div class="app-shell">
-    <header class="hero">
-      <div class="hero-copy">
-        <div class="eyebrow"><img src="icons/batman.svg" alt="Batman" class="bat-logo-inline" /> Sight Words Studio</div>
-        <h1>Make practice feel like a tiny celebration.</h1>
-        <p>
-          Fast rounds, review-ready words, kinder pacing, and a dashboard that helps you spot progress at a glance. Even Batman started with sight words.
+    <div id="connectionStatus" class="connection-status hidden" role="status" aria-live="polite"></div>
+
+    <header class="mission-header">
+      <div>
+        <p class="eyebrow">Sight Words Mission</p>
+        <h1>Help every word become familiar.</h1>
+        <p class="intro">
+          Parents run the round, add new words each week, and decide when a word is learned.
         </p>
       </div>
-      <div class="hero-card panel">
-        <div class="hero-stat">
-          <span class="hero-label">Today&apos;s mission</span>
-          <strong id="heroMission">Master 3 words</strong>
+      <section class="mission-card" aria-live="polite">
+        <span>Today&apos;s Mission</span>
+        <strong id="missionText">Add a learner to begin.</strong>
+        <div class="mission-meter">
+          <div id="missionMeterFill"></div>
         </div>
-        <div class="hero-grid">
-          <div>
-            <span class="hero-label">Install</span>
-            <strong id="appStatusText">Ready to install when supported.</strong>
-          </div>
-          <div>
-            <span class="hero-label">Next review</span>
-            <strong id="nextReviewText">Waiting for the first round.</strong>
-          </div>
-        </div>
-      </div>
+      </section>
     </header>
 
-    <section class="studio-grid">
-      <section class="panel settings-panel" id="settingsPanel">
+    <main class="layout">
+      <section class="panel parent-panel" aria-labelledby="parentToolsTitle">
         <div class="panel-heading">
-          <h2>Studio Setup</h2>
-          <p>Pick a learner, tune the round, and keep progress saved on this device.</p>
+          <h2 id="parentToolsTitle">Parent Console</h2>
+          <p>Choose the learner, set this week&apos;s words, and control the practice round.</p>
         </div>
 
-        <div class="mode-row">
-          <label for="learnerSelect">Learner</label>
-          <select id="learnerSelect">
-            <option value="">Select a learner</option>
-          </select>
-        </div>
-
-        <div class="mode-row">
-          <label for="newLearnerName">Add learner</label>
-          <input id="newLearnerName" type="text" placeholder="Type a learner name" />
-        </div>
-        <div class="mode-row">
-          <label for="newLearnerAvatar">Avatar</label>
-          <select id="newLearnerAvatar">
-            <option value="🌟">🌟</option>
-            <option value="🧑">🧑</option>
-            <option value="👧">👧</option>
-            <option value="🦊">🦊</option>
-            <option value="🧠">🧠</option>
-            <option value="🚀">🚀</option>
-            <option value="🧑‍🚀">🧑‍🚀</option>
-            <option value="🏎️">🏎️</option>
-            <option value="🚗">🚗</option>
-            <option value="🏁">🏁</option>
-            <option value="🛸">🛸</option>
-            <option value="🪐">🪐</option>
-            <option value="🌙">🌙</option>
-            <option value="⭐">⭐</option>
-            <option value="☄️">☄️</option>
-            <option value="🦇">🦇</option>
-            <option value="🛰️">🛰️</option>
-          </select>
+        <div class="field-grid">
+          <label>
+            Learner
+            <select id="learnerSelect"></select>
+          </label>
+          <label>
+            Add learner
+            <input id="learnerNameInput" type="text" placeholder="Name" />
+          </label>
         </div>
 
         <div class="button-row">
-          <button id="addLearnerBtn" class="primary">Add Learner</button>
-          <button id="renameLearnerBtn" class="secondary">Rename</button>
-          <button id="deleteLearnerBtn" class="secondary">Delete</button>
-          <button id="showLearnerStatsBtn" class="secondary">Show Stats</button>
+          <button id="addLearnerBtn" class="secondary">Add Learner</button>
+          <button id="resetLearnerBtn" class="ghost">Reset This Learner</button>
+        </div>
+
+        <div class="weekly-box">
+          <div class="section-label">This Week&apos;s Words</div>
+          <p class="helper-text">Add one or two new words. They get extra practice until you mark them learned.</p>
+          <div class="weekly-input-row">
+            <input id="weeklyWordsInput" type="text" placeholder="big, get" />
+            <button id="saveWeeklyWordsBtn" class="primary">Save Week</button>
+          </div>
+          <div class="word-pills" id="weeklyWordsList">No weekly words yet.</div>
+        </div>
+
+        <div class="settings-grid">
+          <label>
+            Word timer
+            <input id="timerInput" type="number" min="3" max="30" value="8" />
+          </label>
+          <label>
+            Round length
+            <input id="roundLengthInput" type="number" min="5" max="60" value="12" />
+          </label>
+        </div>
+
+        <div class="number-box">
+          <div class="section-label">Number Review</div>
+          <p class="helper-text">Practice 11 through 19, their reversed numbers, and a few mixed-in extras.</p>
+          <div class="number-focus-list" aria-label="Number review focus">
+            <span>11-19</span>
+            <span>91</span>
+            <span>81</span>
+            <span>71</span>
+            <span>61</span>
+          </div>
+          <button id="reviewNumbersBtn" class="secondary">Review Numbers</button>
         </div>
 
         <div class="button-row">
-          <button id="exportDataBtn" class="secondary">Export Data</button>
-          <button id="importDataBtn" class="secondary">Import Data</button>
-          <input id="importDataInput" type="file" accept="application/json" class="hidden" />
-        </div>
-
-        <div class="mode-row">
-          <label for="timerSeconds">Word timer</label>
-          <input id="timerSeconds" type="number" min="5" max="30" value="10" />
-        </div>
-
-        <div class="mode-row">
-          <label for="sessionDuration">Session minutes</label>
-          <input id="sessionDuration" type="number" min="1" max="30" value="2" />
-        </div>
-
-        <div class="mode-row">
-          <label for="profileSelect">Learner profile</label>
-          <select id="profileSelect">
-            <option value="steady">Steady Builder</option>
-            <option value="emerging">Emerging Reader</option>
-            <option value="speed">Speed Sprinter</option>
-          </select>
-        </div>
-
-        <div class="profile-note" id="profileNote">
-          Balanced pacing with a mix of new words and review.
-        </div>
-
-        <div class="button-row">
-          <button id="resetProgressBtn" class="secondary">Reset Progress</button>
-          <button id="reviewNowBtn" class="secondary">Review Current Set</button>
-          <button id="clearCacheBtn" class="secondary">Clear Cache + Reload</button>
+          <button id="startRoundBtn" class="primary">Start Mission</button>
+          <button id="reviewAllBtn" class="secondary">Review All Words</button>
+          <button id="stopRoundBtn" class="ghost">Stop</button>
         </div>
       </section>
 
-      <section class="panel coach-panel">
-        <div class="panel-heading">
-          <h2>Coach Board</h2>
-          <p>A quick read on the learner, the current set, and what to do next.</p>
-        </div>
-        <div class="coach-grid">
-          <article class="coach-card">
-            <span id="coachLabel1">Current streak</span>
-            <strong id="streakValue">0</strong>
-          </article>
-          <article class="coach-card">
-            <span id="coachLabel2">Learner accuracy</span>
-            <strong id="accuracyValue">0%</strong>
-          </article>
-          <article class="coach-card">
-            <span id="coachLabel3">Words left in set</span>
-            <strong id="dueWordsValue">0</strong>
-          </article>
-          <article class="coach-card">
-            <span id="coachLabel4">Sets complete</span>
-            <strong id="sessionMasteredValue">0</strong>
-          </article>
-        </div>
-        <div class="encouragement" id="encouragementText">Warm-up mode. Tap start when you&apos;re ready.</div>
-        <div class="strategy-card">
-          <div class="strip-label">Suggested move</div>
-          <div class="strategy-text" id="strategyText">Start with a short focused round and celebrate quick wins.</div>
-        </div>
-        <div class="recent-strip">
-          <div class="strip-label">Recent words</div>
-          <div class="recent-words" id="recentWordsList">None yet</div>
-        </div>
-      </section>
-    </section>
-
-    <section class="panel sets-panel" id="setsPanel">
-      <div class="panel-heading">
-        <h2>Word Sets</h2>
-        <p>Words are grouped into sets of 10. Master a set to unlock the next one, then review any unlocked set whenever you want.</p>
-      </div>
-      <div class="set-summary">
-        <div class="status-chip">
-          <span>Current set</span>
-          <strong id="currentSetSummary">Set 1</strong>
-        </div>
-        <div class="status-chip">
-          <span>Set words mastered</span>
-          <strong id="currentSetMasterySummary">0 / 10</strong>
-        </div>
-        <div class="status-chip">
-          <span>Unlocked sets</span>
-          <strong id="unlockedSetsSummary">1</strong>
-        </div>
-      </div>
-      <div class="set-grid" id="setsGrid"></div>
-    </section>
-
-    <section class="panel game-panel" id="gamePanel">
-      <div class="review-banner hidden" id="reviewModeBanner" aria-live="polite">
-        <strong id="reviewBannerTitle">Review mode is simplified.</strong>
-        <span id="reviewBannerCopy">Use one big button for correct answers. Swipe left on the word card to stop review and return to the main screen.</span>
-        <button id="exitReviewBtn" class="secondary review-exit-btn">Exit Review</button>
-      </div>
-      <div class="session-banner">
-        <div class="player-card" id="currentPlayerCard">
-          <div class="avatar" id="currentPlayerAvatar">🙂</div>
+      <section class="word-stage panel" aria-labelledby="wordStageTitle">
+        <div class="stage-top">
           <div>
-            <strong id="currentPlayerName">James</strong>
-            <div id="playerModeLabel">Working in Set 1</div>
-            <div class="player-score">Score <strong id="currentPlayerScore">0</strong></div>
+            <p class="eyebrow" id="roundModeLabel">Ready</p>
+            <h2 id="wordStageTitle">Word Stage</h2>
+          </div>
+          <div class="timer" aria-live="polite">
+            <span id="timerValue">8</span>
+            <small>seconds</small>
           </div>
         </div>
-        <div class="session-status">
-          <div class="status-chip">
-            <span>Session</span>
-            <strong id="sessionModeText">Set Mastery</strong>
-          </div>
-          <div class="status-chip">
-            <span>Set progress</span>
-            <strong id="sessionGoalStatus">0 / 10</strong>
-          </div>
-          <div class="status-chip">
-            <span>Last word</span>
-            <strong id="lastWordText">None</strong>
-          </div>
-        </div>
-      </div>
 
-      <div class="button-row session-launchers">
-        <button id="startBtn" class="primary">Start Set Mastery</button>
-        <button id="reviewSetBtn" class="secondary">Review Whole Set</button>
-        <button id="stopSessionBtn" class="secondary">Stop Session</button>
-      </div>
-
-      <div class="bat-guardian"><img src="icons/batman.svg" alt="The Dark Knight watches over your words" class="bat-guardian-img" /></div>
-      <div class="word-stage">
-        <div class="stage-topline">
-          <span id="wordLabel">Ready?</span>
-          <div class="word-tags">
-            <span class="tag" id="wordStageTag">New word</span>
-            <span class="tag" id="roundStatusTag">Waiting</span>
-          </div>
-        </div>
-        <button class="word-card" id="wordCard">
-          <span id="wordText">Tap start to begin</span>
-          <span id="masteredText" class="mastered-text hidden">Mastered!</span>
-          <span id="bonusText" class="bonus-text hidden">+2</span>
+        <button id="wordCard" class="word-card" type="button">
+          <span id="wordText">Press Start Mission</span>
         </button>
-        <div class="hint-text" id="stageHintText">Tap the card to start a round. Use Pass for correct, Try Again for more practice.</div>
-      </div>
 
-      <div class="timer-card">
-        <div class="timer-row">
-          <span>Time remaining</span>
-          <strong id="timerValueVisible">10s</strong>
+        <div class="timer-track" aria-hidden="true">
+          <div id="timerFill"></div>
         </div>
-        <div class="progress-bar">
-          <div id="timerProgress" class="progress-meter"></div>
+
+        <div class="parent-actions" aria-label="Parent scoring">
+          <button id="learnedBtn" class="success">Learned</button>
+          <button id="practiceBtn" class="warning">Practice More</button>
+          <button id="skipBtn" class="ghost">Skip</button>
         </div>
-        <div id="timerValue" class="sr-only">10 seconds</div>
-      </div>
 
-      <div class="button-row answer-buttons">
-        <button id="passBtn" class="pass">I Got It</button>
-        <button id="failBtn" class="danger">Try Again</button>
-      </div>
-    </section>
+        <p class="stage-note" id="stageNote">The parent decides whether the child knows the word.</p>
+      </section>
 
-    <section class="panel dashboard-panel" id="dashboardPanel">
-      <div class="panel-heading">
-        <h2>Progress Map</h2>
-        <p>See how the active learner is moving through the current set and the whole library.</p>
-      </div>
-      <div class="resume-card" id="resumeCard">
-        <div class="strip-label">Resume</div>
-        <div class="resume-title" id="resumeTitle">Pick up where you left off.</div>
-        <div class="resume-copy" id="resumeCopy">Choose a learner to see the next best move.</div>
-        <div class="resume-meta" id="resumeMeta">No learner selected.</div>
+      <section class="panel progress-panel" aria-labelledby="progressTitle">
+        <div class="panel-heading">
+          <h2 id="progressTitle">Progress</h2>
+          <p>Mastery is based on parent decisions, not automatic grading.</p>
+        </div>
+
+        <div class="stats-grid">
+          <article>
+            <span>Learned</span>
+            <strong id="learnedCount">0</strong>
+          </article>
+          <article>
+            <span>Practice</span>
+            <strong id="practiceCount">0</strong>
+          </article>
+          <article>
+            <span>Total Words</span>
+            <strong id="totalCount">0</strong>
+          </article>
+          <article>
+            <span>Round</span>
+            <strong id="roundCount">0 / 0</strong>
+          </article>
+        </div>
+
+        <div class="progress-lists">
+          <div>
+            <div class="section-label">Needs Practice</div>
+            <div class="word-pills" id="practiceWordsList">None yet.</div>
+          </div>
+          <div>
+            <div class="section-label">Learned Words</div>
+            <div class="word-pills" id="learnedWordsList">None yet.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel word-bank-panel" aria-labelledby="wordBankTitle">
+        <div class="panel-heading">
+          <h2 id="wordBankTitle">Word Bank</h2>
+          <p>Edit the full list when you need a larger change. Weekly words are added automatically.</p>
+        </div>
+        <textarea id="wordBankText" rows="8" spellcheck="false"></textarea>
         <div class="button-row">
-          <button id="resumeActionBtn" class="primary">Resume Practice</button>
+          <button id="saveWordBankBtn" class="primary">Save Word Bank</button>
+          <button id="loadDefaultsBtn" class="secondary">Load Defaults</button>
         </div>
-      </div>
-      <div class="dashboard-grid">
-        <div class="dashboard-card">
-          <div class="dashboard-label" id="playerLabel1">Current set</div>
-          <div class="dashboard-value" id="playerScore1">0</div>
-        </div>
-        <div class="dashboard-card">
-          <div class="dashboard-label" id="playerLabel2">Unlocked sets</div>
-          <div class="dashboard-value" id="playerScore2">0</div>
-        </div>
-        <div class="dashboard-card">
-          <div class="dashboard-label">Learner sessions</div>
-          <div class="dashboard-value" id="roundsPlayed">0</div>
-        </div>
-        <div class="dashboard-card">
-          <div class="dashboard-label">Practice words</div>
-          <div class="dashboard-value" id="totalWords">0</div>
-        </div>
-      </div>
-      <div class="status-pills">
-        <div class="pill known-pill"><strong id="knownCount">0</strong> Mastered</div>
-        <div class="pill review-pill"><strong id="reviewCount">0</strong> Learning</div>
-        <div class="pill new-pill"><strong id="newCount">0</strong> New</div>
-      </div>
-      <div class="word-banks">
-        <div>
-          <div class="bank-label">Mastered in current set</div>
-          <div class="word-bank" id="knownWordsList">No mastered words yet.</div>
-        </div>
-        <div>
-          <div class="bank-label">Still practicing in current set</div>
-          <div class="word-bank" id="reviewWordsList">No practice words yet.</div>
-        </div>
-      </div>
-      <div class="scorecard-section">
-        <h3>Per-Word Progress</h3>
-        <div class="set-progress-grid" id="setProgressGrid">Choose a learner to see current set progress.</div>
-      </div>
-    </section>
-
-    <section class="panel editor-panel" id="editorPanel">
-      <div class="panel-heading">
-        <h2>Word Studio</h2>
-        <p>Paste a list, remix it, and keep the set focused.</p>
-      </div>
-      <textarea id="wordEditorText" rows="6" placeholder="Type words separated by commas or new lines"></textarea>
-      <div class="button-row">
-        <button id="loadDefaultWordsBtn" class="secondary">Load Default Words</button>
-        <button id="saveWordListBtn" class="primary">Save Word List</button>
-      </div>
-      <div class="word-summary">Word count <strong id="wordCount">0</strong></div>
-    </section>
-
-    <section class="panel scorecard-panel hidden" id="scorecardPanel">
-      <div class="panel-heading">
-        <h2>Session Story</h2>
-        <p>Here&apos;s what moved during this round.</p>
-      </div>
-      <div class="celebration-card hidden" id="celebrationCard">
-        <div class="celebration-eyebrow" id="celebrationEyebrow">Nice work</div>
-        <div class="celebration-title" id="celebrationTitle">Set progress is moving.</div>
-        <div class="celebration-copy" id="celebrationCopy">Keep going in the current set.</div>
-        <div class="celebration-meta" id="celebrationMeta">The next set unlocks automatically after all 10 words are mastered.</div>
-      </div>
-      <div class="scorecard-stats">
-        <div class="stat-card">
-          <div class="stat-label">Rounds</div>
-          <div class="stat-value" id="scorecardRounds">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label" id="playerStatLabel">Score</div>
-          <div class="stat-value" id="scorecardScore">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Accuracy</div>
-          <div class="stat-value" id="scorecardAccuracy">0%</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Streak peak</div>
-          <div class="stat-value" id="scorecardStreak">0</div>
-        </div>
-      </div>
-
-      <div class="scorecard-section">
-        <h3>Fresh Wins</h3>
-        <div id="masteredList" class="word-list">None yet</div>
-      </div>
-      <div class="scorecard-section">
-        <h3>Strong Repeats</h3>
-        <div id="correctList" class="word-list">None yet</div>
-      </div>
-      <div class="scorecard-section">
-        <h3>Keep Nearby</h3>
-        <div id="practiceList" class="word-list">None yet</div>
-      </div>
-
-      <div class="reflection-card">
-        <div class="strip-label">Reflection</div>
-        <div id="reflectionText">This session will tell a fuller story once a round is complete.</div>
-      </div>
-
-      <div class="reflection-card hidden" id="nextStepCard">
-        <div class="strip-label">Next Step</div>
-        <div id="nextStepText">Keep going in the current set.</div>
-      </div>
-
-      <div class="button-row">
-        <button id="nextSetBtn" class="primary hidden">Start Next Set</button>
-        <button id="reviewCompletedSetBtn" class="secondary hidden">Review This Set</button>
-        <button id="newSessionBtn" class="secondary">Practice Current Set</button>
-      </div>
-    </section>
-
-    <section class="panel rewards-panel">
-      <div class="panel-heading">
-        <h2>Reward Shelf</h2>
-        <p>Tiny celebrations help practice stick.</p>
-      </div>
-      <div class="achievement-grid" id="achievementGrid">
-        <div class="achievement-card locked">Finish a session to unlock your first badge.</div>
-      </div>
-    </section>
-
-    <section class="panel leaderboard-panel">
-      <div class="panel-heading">
-        <h2>Recent Sessions</h2>
-        <p>Saved locally for the active learner.</p>
-      </div>
-      <div class="leaderboard-list" id="leaderboardList">
-        <div class="leaderboard-empty">No finished sessions yet.</div>
-      </div>
-    </section>
-
-    <section class="panel learner-stats-panel hidden" id="learnerStatsPanel">
-      <div class="panel-heading">
-        <h2 id="statsLearnerName">Learner Stats</h2>
-        <p>Saved locally on this device so you can pick up where you left off.</p>
-      </div>
-      <div class="scorecard-stats">
-        <div class="stat-card">
-          <div class="stat-label">Sessions</div>
-          <div class="stat-value" id="statsSessionsValue">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Accuracy</div>
-          <div class="stat-value" id="statsAccuracyValue">0%</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Words mastered</div>
-          <div class="stat-value" id="statsMasteredWordsValue">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Sets complete</div>
-          <div class="stat-value" id="statsCompletedSetsValue">0</div>
-        </div>
-      </div>
-      <div class="scorecard-section">
-        <h3>Unlocked Sets</h3>
-        <div id="statsUnlockedSetsList" class="word-list">None yet</div>
-      </div>
-      <div class="scorecard-section">
-        <h3>Recent Sessions</h3>
-        <div id="statsHistoryList" class="leaderboard-list">
-          <div class="leaderboard-empty">No sessions yet.</div>
-        </div>
-      </div>
-      <div class="button-row">
-        <button id="closeLearnerStatsBtn" class="secondary">Close Stats</button>
-      </div>
-    </section>
+      </section>
+    </main>
   </div>
 
   <script src="script.js"></script>
-  <script src="navigation.js"></script>
-  <script src="theme-switcher.js"></script>
-  <script src="voice-recognition.js"></script>
 </body>
 </html>
