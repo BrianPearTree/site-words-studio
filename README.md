@@ -2,6 +2,10 @@
 
 A more expressive fork of the original sight words app with a coach board, richer session flow, and a more playful mobile-first design.
 
+## Hosted app
+
+GitHub Pages URL: `https://brianpeartree.github.io/site-words-studio/`
+
 ## Features
 - Single-player and multiplayer modes
 - Session goals and quick presets
@@ -40,7 +44,9 @@ Example: `http://192.168.1.100:8000`
 - Phones must be on the same Wi-Fi network as the computer.
 - Use the mode selector to switch between single-player and multiplayer.
 - `Review Now` starts a review-focused session immediately.
-- For best PWA behavior, serve over `http://localhost` during development or `https` when hosted remotely.
+- Home-screen installs remember the exact address they were installed from. If your computer's IP changes, or the local server is stopped, an install from `http://<computer-ip>:8000` may fail before the app can load.
+- Offline install support requires a service worker, and service workers only run on secure origins. Use `http://localhost` for local desktop testing, or an `https` URL when installing on a phone. A plain `http://<computer-ip>:8000` phone install can open from the home screen, but it will not be offline-ready.
+- For the most reliable phone install, host this static folder at a stable `https` address such as GitHub Pages, Netlify, Cloudflare Pages, or a trusted HTTPS server on your network.
 
 ## Install on phones
 
@@ -55,3 +61,4 @@ Example: `http://192.168.1.100:8000`
 ## Offline behavior
 - After the first successful load, the app shell is cached for offline reuse.
 - Word progress still saves in browser storage on the device.
+- When installed from a secure origin, launches use the cached app shell first and quietly refresh from the network when it is available.
