@@ -159,3 +159,322 @@
   // Initialize
   switchTab(saved);
 })();
+
+/* Number Review extension */
+(function() {
+  const NUMBER_REVIEW_LENGTH = 18;
+  const NUMBER_FOCUS = [
+    ...Array.from({ length: 9 }, (_, index) => String(index + 11)),
+    '21', '31', '41', '51', '61', '71', '81', '91',
+  ];
+  const NUMBER_EXTRAS = Array.from({ length: 101 }, (_, index) => String(index))
+    .filter((number) => !NUMBER_FOCUS.includes(number));
+
+  const css = document.createElement('style');
+  css.textContent = `
+    .number-review-button {
+      background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(251,191,36,0.22)) !important;
+      color: var(--accent) !important;
+    }
+  `;
+  document.head.appendChild(css);
+
+  function makeButton() {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'secondary number-review-button';
+    button.textContent = 'Review Numbers';
+    button.addEventListener('click', startNumberReviewSession);
+    return button;
+  }
+
+  const settingsButton = makeButton();
+  settingsButton.id = 'reviewNumbersBtn';
+  const stageButton = makeButton();
+  stageButton.id = 'reviewNumbersStageBtn';
+
+  const settingsAnchor = document.getElementById('reviewNowBtn');
+  if (settingsAnchor) settingsAnchor.insertAdjacentElement('afterend', settingsButton);
+
+  const stageAnchor = document.getElementById('reviewSetBtn');
+  if (stageAnchor) stageAnchor.insertAdjacentElement('afterend', stageButton);
+
+  function buildNumberReviewQueue() {
+    const focusPool = shuffleList([
+      ...NUMBER_FOCUS,
+      ...NUMBER_FOCUS,
+      ...NUMBER_FOCUS,
+      ...NUMBER_FOCUS.slice(0, 9),
+    ]);
+    const extrasPool = shuffleList(NUMBER_EXTRAS);
+    const queue = [];
+
+    for (let index = 0; index < NUMBER_REVIEW_LENGTH; index += 1) {
+      const useExtra = index > 0 && (index + 1) % 5 === 0;
+      const pool = useExtra ? extrasPool : focusPool;
+      if (pool.length === 0) {
+        pool.push(...shuffleList(useExtra ? NUMBER_EXTRAS : NUMBER_FOCUS));
+      }
+      queue.push(pool.shift());
+    }
+
+    return queue;
+  }
+
+  function sessionTypeLabel(type = state.session.type) {
+    if (type === 'number-review') return 'Number Review';
+    if (type === 'set-review') return 'Whole Set Review';
+    return 'Set Mastery';
+  }
+
+  function sessionSetLabel(entry) {
+    return entry.type === 'number-review' ? 'Numbers' : formatSetLabel(entry.setIndex);
+  }
+
+  const originalGetSessionQueue = getSessionQueue;
+  getSessionQueue = function patchedGetSessionQueue(learner) {
+    if (state.session.type === 'number-review') return buildNumberReviewQueue();
+    return originalGetSessionQueue(learner);
+  };
+
+  const originalGetNextWord = getNextWord;
+  getNextWord = function patchedGetNextWord() {
+    if (state.session.type !== 'number-review') return originalGetNextWord();
+    if (state.session.queue.length === 0) return null;
+    return state.session.queue.shift() || null;
+  };
+
+  const originalStagePrompt = stagePrompt;
+  stagePrompt = function patchedStagePrompt(mode, wordText) {
+    if (mode === 'number-review') return 'Read this number';
+    return originalStagePrompt(mode, wordText);
+  };
+
+  beginRound = function patchedBeginRound() {
+    clearTimer();
+    clearFeedback();
+
+    const wordText = getNextWord();
+    if (!wordText) {
+      finishSession();
+      return;
+    }
+
+    state.session.currentWord = wordText;
+    state.lastWord = wordText;
+    elements.wordLabel.textContent = stagePrompt(state.session.type, wordText);
+    elements.wordText.textContent = wordText;
+    elements.wordStageTag.textContent = state.session.type === 'number-review'
+      ? 'Number review'
+      : state.session.type === 'set-review'
+        ? 'Set review'
+        : 'Mastery';
+    elements.roundStatusTag.textContent = state.session.type === 'number-review'
+      ? 'Teen focus'
+      : state.session.type === 'set-review'
+        ? 'One pass only'
+        : 'Live round';
+    elements.lastWordText.textContent = wordText;
+    startTimer();
+    updateInteractionModeUI();
+    saveState();
+  };
+
+  const originalHandleAnswer = handleAnswer;
+  handleAnswer = function patchedHandleAnswer(isPass, timedOut = false) {
+    if (state.session.type !== 'number-review') {
+      originalHandleAnswer(isPass, timedOut);
+      return;
+    }
+
+    if (!state.session.active || !state.session.currentWord) return;
+
+    clearTimer();
+    const wordText = state.session.currentWord;
+    state.session.roundsPlayed += 1;
+    pushRecentWord(wordText);
+
+    if (isPass) {
+      state.session.correct += 1;
+      state.session.streak += 1;
+      state.session.bestStreak = Math.max(state.session.bestStreak, state.session.streak);
+      trackSessionWord(wordText, 'correct');
+      triggerFeedback('success');
+      playSuccessTone();
+      elements.roundStatusTag.textContent = 'Number got it';
+    } else {
+      state.session.incorrect += 1;
+      state.session.streak = 0;
+      trackSessionWord(wordText, 'practice');
+      triggerFeedback('fail');
+      playFailTone();
+      elements.roundStatusTag.textContent = timedOut ? 'Timed out' : 'Try this number again';
+    }
+
+    state.lastWord = wordText;
+    elements.lastWordText.textContent = `${wordText} ${isPass ? 'passed' : 'needs another try'}`;
+    updateCurrentPlayerDisplay();
+    updateCoachBoard();
+    saveState();
+
+    const finished = state.session.queue.length === 0;
+    state.session.currentWord = null;
+
+    if (finished) {
+      finishSession();
+      return;
+    }
+
+    setTimeout(beginRound, 450);
+  };
+
+  const originalUpdateCurrentPlayerDisplay = updateCurrentPlayerDisplay;
+  updateCurrentPlayerDisplay = function patchedUpdateCurrentPlayerDisplay() {
+    originalUpdateCurrentPlayerDisplay();
+    if (state.session.type === 'number-review') {
+      elements.sessionModeText.textContent = 'Number Review';
+      if (state.session.active) elements.playerModeLabel.textContent = 'Reviewing numbers';
+    }
+  };
+
+  const originalUpdateCoachBoard = updateCoachBoard;
+  updateCoachBoard = function patchedUpdateCoachBoard() {
+    originalUpdateCoachBoard();
+    if (state.session.type === 'number-review' && state.session.active) {
+      elements.encouragementText.textContent = 'Number review is active. Focus on 11 through 19 and their reversed forms.';
+      elements.strategyText.textContent = 'Keep it quick and visual. Mixed extras appear occasionally so the pattern stays honest.';
+    }
+  };
+
+  const originalUpdateInteractionModeUI = updateInteractionModeUI;
+  updateInteractionModeUI = function patchedUpdateInteractionModeUI() {
+    originalUpdateInteractionModeUI();
+    const learner = getActiveLearner();
+    const numberReviewActive = state.session.active && state.session.type === 'number-review';
+    settingsButton.disabled = !learner || state.session.active;
+    stageButton.disabled = !learner || state.session.active;
+    if (numberReviewActive) {
+      elements.failBtn.classList.remove('hidden');
+      elements.failBtn.disabled = !state.session.currentWord;
+      elements.passBtn.classList.remove('review-primary');
+      elements.stageHintText.textContent = 'Number review focuses on 11-19 and reversed forms like 91, 81, 71, and 61.';
+    }
+  };
+
+  const originalUpdateCelebrationCard = updateCelebrationCard;
+  updateCelebrationCard = function patchedUpdateCelebrationCard() {
+    if (state.session.type !== 'number-review') {
+      originalUpdateCelebrationCard();
+      return;
+    }
+
+    elements.celebrationCard.classList.remove('hidden');
+    elements.celebrationEyebrow.textContent = 'Number review complete';
+    elements.celebrationTitle.textContent = 'Teen numbers got a focused pass.';
+    elements.celebrationCopy.textContent = 'Number review keeps sight-word mastery unchanged and gives tricky numbers their own lane.';
+    elements.celebrationMeta.textContent = `${state.session.correct} of ${state.session.roundsPlayed} numbers were marked correct.`;
+  };
+
+  const originalBuildReflectionText = buildReflectionText;
+  buildReflectionText = function patchedBuildReflectionText() {
+    if (state.session.type === 'number-review') {
+      return 'Number review gives teen numbers and reversed forms a quick confidence check without changing word mastery.';
+    }
+    return originalBuildReflectionText();
+  };
+
+  const originalUpdateScorecardActions = updateScorecardActions;
+  updateScorecardActions = function patchedUpdateScorecardActions() {
+    if (state.session.type !== 'number-review') {
+      originalUpdateScorecardActions();
+      return;
+    }
+
+    elements.nextStepCard.classList.remove('hidden');
+    elements.nextSetBtn.classList.add('hidden');
+    elements.reviewCompletedSetBtn.classList.remove('hidden');
+    elements.nextStepText.textContent = 'Number review is done. Return to sight-word mastery whenever you are ready.';
+    elements.reviewCompletedSetBtn.textContent = 'Review Numbers Again';
+    elements.newSessionBtn.textContent = 'Practice Current Set';
+  };
+
+  const originalUpdateLeaderboard = updateLeaderboard;
+  updateLeaderboard = function patchedUpdateLeaderboard() {
+    const learner = getActiveLearner();
+    if (!learner || learner.history.length === 0) {
+      originalUpdateLeaderboard();
+      return;
+    }
+
+    elements.leaderboardList.innerHTML = learner.history
+      .slice(-8)
+      .reverse()
+      .map((entry, index) => `
+        <div class="leaderboard-row">
+          <div class="leaderboard-rank">${index + 1}</div>
+          <div>
+            <div class="leaderboard-name">${sessionSetLabel(entry)} · ${sessionTypeLabel(entry.type)}</div>
+            <div class="leaderboard-meta">${entry.accuracy}% accuracy · ${entry.correct} correct · ${entry.masteredThisSession} mastered</div>
+          </div>
+          <div class="leaderboard-score">${entry.completedSet ? 'Set done' : `${entry.correct} pts`}</div>
+        </div>
+      `)
+      .join('');
+  };
+
+  const originalUpdateStatsPanel = updateStatsPanel;
+  updateStatsPanel = function patchedUpdateStatsPanel() {
+    originalUpdateStatsPanel();
+    const learner = getActiveLearner();
+    if (!learner || learner.history.length === 0) return;
+
+    elements.statsHistoryList.innerHTML = learner.history
+      .slice(-8)
+      .reverse()
+      .map((entry) => `
+        <div class="leaderboard-row">
+          <div class="leaderboard-rank">${entry.type === 'number-review' ? 'N' : entry.type === 'set-review' ? 'R' : 'M'}</div>
+          <div>
+            <div class="leaderboard-name">${sessionSetLabel(entry)}</div>
+            <div class="leaderboard-meta">${entry.accuracy}% accuracy · ${entry.correct} correct · ${entry.masteredThisSession} mastered</div>
+          </div>
+          <div class="leaderboard-score">${entry.completedSet ? 'Unlocked' : 'Done'}</div>
+        </div>
+      `)
+      .join('');
+  };
+
+  const originalStartNewSession = startNewSession;
+  startNewSession = function patchedStartNewSession() {
+    if (state.session.type === 'number-review') {
+      startCurrentSetMastery();
+      return;
+    }
+    originalStartNewSession();
+  };
+
+  const originalStartReviewSession = startReviewSession;
+  startReviewSession = function patchedStartReviewSession(setIndex = null) {
+    if (state.session.type === 'number-review' && setIndex === state.session.setIndex) {
+      startNumberReviewSession();
+      return;
+    }
+    originalStartReviewSession(setIndex);
+  };
+
+  function startNumberReviewSession() {
+    const learner = getActiveLearner();
+    if (!learner) return;
+    startSession('number-review', learner.activeSetIndex);
+  }
+
+  const originalAttachEvents = attachEvents;
+  attachEvents = function patchedAttachEvents() {
+    originalAttachEvents();
+    elements.reviewCompletedSetBtn.addEventListener('click', () => {
+      if (state.session.type === 'number-review') startNumberReviewSession();
+    });
+  };
+
+  updateInteractionModeUI();
+})();
