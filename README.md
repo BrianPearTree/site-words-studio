@@ -6,6 +6,8 @@ A more expressive fork of the original sight words app with a coach board, riche
 
 GitHub Pages URL: `https://brianpeartree.github.io/site-words-studio/`
 
+Published from `main` by the GitHub Pages workflow.
+
 ## Features
 - Single-player and multiplayer modes
 - Session goals and quick presets
