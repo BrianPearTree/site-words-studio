@@ -1,29 +1,31 @@
 const STORAGE_KEY = 'sightWordsStudioV2';
 const LEGACY_STORAGE_KEY = 'sightWordsStudioV1';
 const MASTERED_THRESHOLD = 3;
-const SET_SIZE = 10;
+const DEFAULT_SET_SIZE = 10;
 const QUICK_MASTERY_WINDOW_MS = 2500;
 const DEFAULT_WORDS = [
   'I', 'a', 'the', 'and', 'is', 'in', 'to', 'it', 'at', 'up',
-  'no', 'do', 'of', 'not', 'if', 'on', 'am', 'as', 'off', 'can',
+  'but', 'get', 'big', 'no', 'do', 'of', 'not', 'if', 'on', 'am', 'as', 'off', 'can',
   'said', 'did', 'sit', 'cut', 'man', 'red', 'blue', 'yellow', 'pink', 'see',
-  'cookie', 'Mom', 'Dad', 'James', 'Michael', 'Andrew', 'sick', 'go', 'like', 'we'
+  'cookie', 'Mom', 'Dad', 'James', 'Michael', 'Andrew', 'sick', 'go', 'like', 'we',
+  'ten', 'set', 'cat', 'dog'
 ];
+const THIS_WEEK_WORDS = ['ten', 'set'];
 
 const PROFILE_DETAILS = {
   steady: {
-    label: 'Steady Builder',
-    note: 'Balanced pacing with a mix of confident repeats and fresh words.',
+    label: 'Fast',
+    note: 'Fast pacing with a mix of confident repeats and fresh words.',
     strategy: 'Stay with one set until it feels easy, then unlock the next set.'
   },
   emerging: {
-    label: 'Emerging Reader',
-    note: 'Gentler pacing with more repetition and simpler recovery after misses.',
+    label: 'Normal',
+    note: 'Normal pacing with more repetition and simpler recovery after misses.',
     strategy: 'Keep the set small, celebrate quickly, and avoid harsh resets.'
   },
   speed: {
-    label: 'Speed Sprinter',
-    note: 'Brisker rounds for learners ready to move through familiar words faster.',
+    label: 'Fastest',
+    note: 'Fastest pacing for learners ready to move through familiar words faster.',
     strategy: 'Push the pace once confidence is strong, then review the whole set once.'
   }
 };
@@ -38,6 +40,8 @@ const SOUND_FILES = {
 const state = {
   timerSeconds: 10,
   sessionDurationMinutes: 2,
+  customNumberRange: { min: 1, max: 100 },
+  masterySetSize: DEFAULT_SET_SIZE,
   profile: 'steady',
   wordList: [...DEFAULT_WORDS],
   learners: [],
@@ -46,12 +50,19 @@ const state = {
   lastWord: 'None',
   recentWords: [],
   statsPanelOpen: false,
+  newWordsPaneOpen: false,
 };
 
 const elements = {
   learnerSelect: document.getElementById('learnerSelect'),
   newLearnerName: document.getElementById('newLearnerName'),
   newLearnerAvatar: document.getElementById('newLearnerAvatar'),
+  newLearnerCustomAvatar: document.getElementById('newLearnerCustomAvatar'),
+  learnerPrompt: document.getElementById('learnerPrompt'),
+  promptLearnerName: document.getElementById('promptLearnerName'),
+  promptLearnerAvatar: document.getElementById('promptLearnerAvatar'),
+  promptLearnerCustomAvatar: document.getElementById('promptLearnerCustomAvatar'),
+  createPromptLearnerBtn: document.getElementById('createPromptLearnerBtn'),
   addLearnerBtn: document.getElementById('addLearnerBtn'),
   renameLearnerBtn: document.getElementById('renameLearnerBtn'),
   deleteLearnerBtn: document.getElementById('deleteLearnerBtn'),
@@ -60,14 +71,33 @@ const elements = {
   exportDataBtn: document.getElementById('exportDataBtn'),
   importDataBtn: document.getElementById('importDataBtn'),
   importDataInput: document.getElementById('importDataInput'),
+  weeklyWordsInput: document.getElementById('weeklyWordsInput'),
+  saveWeeklyWordsBtn: document.getElementById('saveWeeklyWordsBtn'),
+  weeklyWordsList: document.getElementById('weeklyWordsList'),
   timerSeconds: document.getElementById('timerSeconds'),
   sessionDuration: document.getElementById('sessionDuration'),
+  customNumberMin: document.getElementById('customNumberMin'),
+  customNumberMax: document.getElementById('customNumberMax'),
+  masterySetSize: document.getElementById('masterySetSize'),
   profileSelect: document.getElementById('profileSelect'),
   resetProgressBtn: document.getElementById('resetProgressBtn'),
   reviewNowBtn: document.getElementById('reviewNowBtn'),
   reviewSetBtn: document.getElementById('reviewSetBtn'),
   exitReviewBtn: document.getElementById('exitReviewBtn'),
   clearCacheBtn: document.getElementById('clearCacheBtn'),
+  wordSetMasteryBtn: document.getElementById('wordSetMasteryBtn'),
+  reviewNewWordsBtn: document.getElementById('reviewNewWordsBtn'),
+  reviewPriorWordsBtn: document.getElementById('reviewPriorWordsBtn'),
+  newWordsSetupCard: document.getElementById('newWordsSetupCard'),
+  newWordsSetupInput: document.getElementById('newWordsSetupInput'),
+  addNewWordsBtn: document.getElementById('addNewWordsBtn'),
+  startNewWordsReviewBtn: document.getElementById('startNewWordsReviewBtn'),
+  closeNewWordsPaneBtn: document.getElementById('closeNewWordsPaneBtn'),
+  newWordsSetupList: document.getElementById('newWordsSetupList'),
+  numberTeenFocusBtn: document.getElementById('numberTeenFocusBtn'),
+  numberPricesBtn: document.getElementById('numberPricesBtn'),
+  numberRangeBtn: document.getElementById('numberRangeBtn'),
+  numberNextBtn: document.getElementById('numberNextBtn'),
   loadDefaultWordsBtn: document.getElementById('loadDefaultWordsBtn'),
   saveWordListBtn: document.getElementById('saveWordListBtn'),
   wordEditorText: document.getElementById('wordEditorText'),
@@ -171,6 +201,8 @@ let soundsPrimed = false;
 const soundPlayers = {};
 let touchStartX = null;
 let touchStartY = null;
+let appUpdateRegistration = null;
+let appUpdateReloading = false;
 
 function createEmptySession() {
   return {
@@ -189,11 +221,37 @@ function createEmptySession() {
     masteredThisSession: 0,
     sessionWords: {},
     completedSet: false,
+    skipHistory: false,
+    paused: false,
+    pausedRemainingMs: null,
   };
 }
 
 function normalizeWordKey(word) {
-  return word.toLowerCase();
+  return String(word).trim().toLowerCase();
+}
+
+function uniqueWords(words) {
+  const seen = new Set();
+  return words
+    .map((word) => String(word).trim())
+    .filter((word) => {
+      const key = normalizeWordKey(word);
+      if (!word || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function getMasterySetSize() {
+  return Math.max(4, Math.min(20, Number(state.masterySetSize) || DEFAULT_SET_SIZE));
+}
+
+function saveMasterySetSize() {
+  state.masterySetSize = getMasterySetSize();
+  elements.masterySetSize.value = state.masterySetSize;
+  updateAllUI();
+  saveState();
 }
 
 function buildWordProgress(text) {
@@ -220,6 +278,7 @@ function createLearner(name, avatar = '🌟') {
     avatar,
     activeSetIndex: 0,
     unlockedSetCount: 1,
+    weeklyWords: [...THIS_WEEK_WORDS],
     wordProgress: {},
     history: [],
     achievements: [],
@@ -228,13 +287,18 @@ function createLearner(name, avatar = '🌟') {
   };
 }
 
+function avatarValue(customInput, fallbackSelect) {
+  return customInput.value.trim() || fallbackSelect.value || '🌟';
+}
+
 function chunkWords(wordList) {
   const sets = [];
-  for (let index = 0; index < wordList.length; index += SET_SIZE) {
+  const setSize = getMasterySetSize();
+  for (let index = 0; index < wordList.length; index += setSize) {
     sets.push({
-      index: index / SET_SIZE,
-      title: `Set ${Math.floor(index / SET_SIZE) + 1}`,
-      words: wordList.slice(index, index + SET_SIZE),
+      index: index / setSize,
+      title: `Set ${Math.floor(index / setSize) + 1}`,
+      words: wordList.slice(index, index + setSize),
     });
   }
   return sets;
@@ -256,6 +320,9 @@ function ensureLearnerProgress(learner) {
     nextProgress[key] = existing ? { ...existing, text } : buildWordProgress(text);
   });
   learner.wordProgress = nextProgress;
+  learner.weeklyWords = Array.isArray(learner.weeklyWords)
+    ? uniqueWords(learner.weeklyWords).filter((word) => state.wordList.some((item) => normalizeWordKey(item) === normalizeWordKey(word)))
+    : [];
   learner.history = Array.isArray(learner.history) ? learner.history : [];
   learner.achievements = Array.isArray(learner.achievements) ? learner.achievements : [];
   learner.totalAttempts = learner.totalAttempts || 0;
@@ -263,6 +330,15 @@ function ensureLearnerProgress(learner) {
   learner.activeSetIndex = Math.max(0, learner.activeSetIndex || 0);
   learner.unlockedSetCount = Math.max(1, learner.unlockedSetCount || 1);
   updateUnlockedSets(learner);
+}
+
+function ensureCurrentWordDefaults() {
+  state.wordList = uniqueWords([...state.wordList, ...DEFAULT_WORDS]);
+  state.learners.forEach((learner) => {
+    learner.weeklyWords = uniqueWords([...(learner.weeklyWords || []), ...THIS_WEEK_WORDS])
+      .filter((word) => state.wordList.some((item) => normalizeWordKey(item) === normalizeWordKey(word)));
+    ensureLearnerProgress(learner);
+  });
 }
 
 function learnerAccuracy(learner) {
@@ -334,7 +410,7 @@ function migrateLegacyData(parsed) {
   state.wordList = migratedWordList;
 
   const learner = createLearner(
-    parsed.players?.[0]?.name || 'James',
+    parsed.players?.[0]?.name || 'Learner',
     parsed.players?.[0]?.avatar || '🌟'
   );
 
@@ -363,6 +439,8 @@ function migrateLegacyData(parsed) {
   state.activeLearnerId = learner.id;
   state.timerSeconds = parsed.timerSeconds || state.timerSeconds;
   state.sessionDurationMinutes = parsed.sessionDurationMinutes || state.sessionDurationMinutes;
+  state.customNumberRange = normalizeCustomNumberRange(parsed.customNumberRange);
+  state.masterySetSize = Math.max(4, Math.min(20, Number(parsed.masterySetSize) || state.masterySetSize));
   state.profile = parsed.profile || state.profile;
 }
 
@@ -373,6 +451,8 @@ function loadState() {
       const parsed = JSON.parse(stored);
       state.timerSeconds = parsed.timerSeconds || state.timerSeconds;
       state.sessionDurationMinutes = parsed.sessionDurationMinutes || state.sessionDurationMinutes;
+      state.customNumberRange = normalizeCustomNumberRange(parsed.customNumberRange);
+      state.masterySetSize = Math.max(4, Math.min(20, Number(parsed.masterySetSize) || state.masterySetSize));
       state.profile = parsed.profile || state.profile;
       state.wordList = Array.isArray(parsed.wordList) && parsed.wordList.length > 0
         ? parsed.wordList
@@ -397,16 +477,11 @@ function loadState() {
     state.wordList = [...DEFAULT_WORDS];
   }
 
-  if (state.learners.length === 0) {
-    const learner = createLearner('James', '🌟');
-    state.learners = [learner];
-    state.activeLearnerId = learner.id;
-  }
-
+  ensureCurrentWordDefaults();
   state.learners.forEach((learner) => ensureLearnerProgress(learner));
 
   if (!getActiveLearner()) {
-    state.activeLearnerId = state.learners[0].id;
+    state.activeLearnerId = state.learners[0]?.id || null;
   }
 }
 
@@ -414,6 +489,8 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     timerSeconds: state.timerSeconds,
     sessionDurationMinutes: state.sessionDurationMinutes,
+    customNumberRange: state.customNumberRange,
+    masterySetSize: state.masterySetSize,
     profile: state.profile,
     wordList: state.wordList,
     learners: state.learners,
@@ -491,14 +568,29 @@ function playLevelUpTone() {
 
 function parseWordEditorText() {
   const raw = elements.wordEditorText.value;
-  const words = raw
-    .split(/[,\n]+/)
-    .map((word) => word.trim())
-    .filter(Boolean);
+  return parseInlineWords(raw);
+}
 
-  return Array.from(new Set(words.map((word) => word.toLowerCase()))).map((lower) => {
-    return words.find((word) => word.toLowerCase() === lower);
+function parseInlineWords(raw) {
+  return uniqueWords(String(raw).split(/[,\n]+/));
+}
+
+function normalizeCustomNumberRange(range = state.customNumberRange) {
+  const min = Math.max(0, Math.min(999, Number(range?.min) || 1));
+  const max = Math.max(1, Math.min(999, Number(range?.max) || 100));
+  const low = Math.min(min, max);
+  const high = Math.max(min, max);
+  return { min: low, max: high };
+}
+
+function saveCustomNumberRange() {
+  state.customNumberRange = normalizeCustomNumberRange({
+    min: elements.customNumberMin.value,
+    max: elements.customNumberMax.value,
   });
+  elements.customNumberMin.value = state.customNumberRange.min;
+  elements.customNumberMax.value = state.customNumberRange.max;
+  saveState();
 }
 
 function updateWordCount() {
@@ -510,8 +602,72 @@ function buildWordEditorText() {
   updateWordCount();
 }
 
+function updateWeeklyWordsUI() {
+  const learner = getActiveLearner();
+  const weeklyWords = learner?.weeklyWords || [];
+  elements.weeklyWordsInput.value = weeklyWords.join(', ');
+  elements.weeklyWordsList.innerHTML = wordBadgeList(weeklyWords, 'No weekly words yet.');
+  if (elements.newWordsSetupList) {
+    elements.newWordsSetupList.innerHTML = wordBadgeList(weeklyWords, 'No new words yet.');
+  }
+  if (elements.startNewWordsReviewBtn) {
+    elements.startNewWordsReviewBtn.disabled = !learner || weeklyWords.length === 0 || state.session.active;
+  }
+}
+
+function updateLearnerPrompt() {
+  const shouldPrompt = state.learners.length === 0;
+  elements.learnerPrompt.classList.toggle('hidden', !shouldPrompt);
+  document.body.classList.toggle('learner-prompt-active', shouldPrompt);
+  if (shouldPrompt) {
+    setTimeout(() => elements.promptLearnerName.focus(), 0);
+  }
+}
+
 function updateAppStatus(message) {
   elements.appStatusText.textContent = message;
+}
+
+function ensureAppUpdateButton() {
+  let button = document.getElementById('appUpdateBtn');
+  if (button) return button;
+
+  button = document.createElement('button');
+  button.id = 'appUpdateBtn';
+  button.type = 'button';
+  button.className = 'secondary hidden';
+  button.textContent = 'Update App';
+  button.title = 'Load the latest version of the app';
+  button.addEventListener('click', applyDetectedAppUpdate);
+  document.body.appendChild(button);
+  return button;
+}
+
+function showAppUpdateButton(registration) {
+  appUpdateRegistration = registration || appUpdateRegistration;
+  const button = ensureAppUpdateButton();
+  button.classList.remove('hidden');
+  button.disabled = false;
+  updateAppStatus('Update available.');
+}
+
+function hideAppUpdateButton() {
+  const button = document.getElementById('appUpdateBtn');
+  if (button) button.classList.add('hidden');
+}
+
+function applyDetectedAppUpdate() {
+  const button = ensureAppUpdateButton();
+  button.disabled = true;
+  updateAppStatus('Updating app...');
+
+  if (appUpdateRegistration?.waiting) {
+    appUpdateReloading = true;
+    appUpdateRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    return;
+  }
+
+  clearCacheAndReload();
 }
 
 function shuffleList(list) {
@@ -545,10 +701,30 @@ function buildSetReviewQueue(learner, setIndex) {
   return shuffleList(getCurrentSetWords(learner, setIndex).filter(Boolean));
 }
 
+function buildWeeklyReviewQueue(learner) {
+  const weekly = learner.weeklyWords || [];
+  const weeklyKeys = new Set(weekly.map(normalizeWordKey));
+  const prior = state.wordList.filter((word) => !weeklyKeys.has(normalizeWordKey(word)));
+  const priorMix = shuffleList(prior).slice(0, Math.max(8, weekly.length * 4));
+  return shuffleList([...weekly, ...weekly, ...weekly, ...priorMix]).filter(Boolean);
+}
+
+function buildPriorReviewQueue(learner) {
+  const setSize = getMasterySetSize();
+  const priorCount = Math.max(learner.activeSetIndex * setSize, learner.unlockedSetCount > 1 ? (learner.unlockedSetCount - 1) * setSize : 0);
+  const priorWords = state.wordList.slice(0, priorCount);
+  return shuffleList((priorWords.length > 0 ? priorWords : state.wordList).filter(Boolean));
+}
+
+function isWordReviewSession(type = state.session.type) {
+  return ['set-review', 'new-words-review', 'prior-words-review'].includes(type);
+}
+
 function getSessionQueue(learner) {
-  return state.session.type === 'set-review'
-    ? buildSetReviewQueue(learner, state.session.setIndex)
-    : buildMasteryQueue(learner, state.session.setIndex);
+  if (state.session.type === 'set-review') return buildSetReviewQueue(learner, state.session.setIndex);
+  if (state.session.type === 'new-words-review') return buildWeeklyReviewQueue(learner);
+  if (state.session.type === 'prior-words-review') return buildPriorReviewQueue(learner);
+  return buildMasteryQueue(learner, state.session.setIndex);
 }
 
 function getNextWord() {
@@ -556,7 +732,7 @@ function getNextWord() {
   if (!learner) return null;
 
   if (state.session.queue.length === 0) {
-    if (state.session.type === 'set-review') {
+    if (isWordReviewSession()) {
       return null;
     }
     state.session.queue = getSessionQueue(learner);
@@ -608,8 +784,8 @@ function updateLearnerSelect() {
   const options = state.learners
     .map((learner) => `<option value="${learner.id}">${learner.avatar} ${learner.name}</option>`)
     .join('');
-  elements.learnerSelect.innerHTML = options;
-  elements.learnerSelect.value = state.activeLearnerId;
+  elements.learnerSelect.innerHTML = `<option value="">Select a learner</option>${options}`;
+  elements.learnerSelect.value = state.activeLearnerId || '';
 }
 
 function updateCurrentPlayerDisplay() {
@@ -629,7 +805,19 @@ function updateCurrentPlayerDisplay() {
   elements.currentPlayerName.textContent = learner.name;
   elements.playerModeLabel.textContent = `Working in ${setTitle}`;
   elements.currentPlayerScore.textContent = state.session.correct;
-  elements.sessionModeText.textContent = state.session.type === 'set-review' ? 'Whole Set Review' : 'Set Mastery';
+  elements.sessionModeText.textContent = sessionModeLabel();
+}
+
+function sessionModeLabel(type = state.session.type) {
+  if (type === 'set-review') return 'Whole Set Review';
+  if (type === 'new-words-review') return 'New Words Review';
+  if (type === 'prior-words-review') return 'Prior Words Review';
+  if (type === 'number-review') return '10-19 Focus';
+  if (type === 'price-review') return 'Prices';
+  if (type === 'range-review') return 'Custom Range';
+  if (type === 'next-number') return 'Next Number';
+  if (type === 'count-by-review') return 'Count By';
+  return 'Set Mastery';
 }
 
 function formatSetLabel(setIndex) {
@@ -728,7 +916,7 @@ function updateResumeCard(learner) {
     elements.resumeActionBtn.textContent = learner.activeSetIndex + 1 < learner.unlockedSetCount ? 'Start Next Set' : 'Review Current Set';
   } else {
     elements.resumeTitle.textContent = `${learner.name} is working in ${setLabel}.`;
-    elements.resumeCopy.textContent = `${stats.mastered} of ${stats.total} words are mastered. The next set unlocks automatically when all 10 are done.`;
+    elements.resumeCopy.textContent = `${stats.mastered} of ${stats.total} words are mastered. The next set unlocks automatically when the set is done.`;
     elements.resumeActionBtn.textContent = 'Resume Current Set';
   }
 
@@ -761,10 +949,10 @@ function updateCelebrationCard() {
     return;
   }
 
-  if (state.session.type === 'set-review') {
+  if (isWordReviewSession()) {
     elements.celebrationEyebrow.textContent = 'Review complete';
-    elements.celebrationTitle.textContent = `${setLabel} got a calm confidence check.`;
-    elements.celebrationCopy.textContent = 'Whole-set review does not change mastery. It simply shows what feels easy right now.';
+    elements.celebrationTitle.textContent = `${sessionModeLabel()} is complete.`;
+    elements.celebrationCopy.textContent = 'Review does not change mastery. It simply shows what feels easy right now.';
     elements.celebrationMeta.textContent = `${state.session.correct} of ${state.session.roundsPlayed} review words were answered correctly.`;
     return;
   }
@@ -774,7 +962,7 @@ function updateCelebrationCard() {
   elements.celebrationCopy.textContent = state.session.masteredThisSession > 0
     ? `This round moved ${state.session.masteredThisSession} word${state.session.masteredThisSession === 1 ? '' : 's'} into mastered.`
     : 'No new words crossed into mastered yet, but the repetition still counts.';
-  elements.celebrationMeta.textContent = 'Keep the pace short and positive. The next set unlocks automatically after all 10 words are mastered.';
+  elements.celebrationMeta.textContent = 'Keep the pace short and positive. The next set unlocks automatically after the whole set is mastered.';
 }
 
 function updateDashboard() {
@@ -836,8 +1024,8 @@ function updateCoachBoard() {
     return;
   }
 
-  if (state.session.type === 'set-review') {
-    elements.encouragementText.textContent = 'Whole-set review is active. Each word appears once so the learner can show what they know.';
+  if (isWordReviewSession()) {
+    elements.encouragementText.textContent = `${sessionModeLabel()} is active. Each word appears so the learner can show what they know.`;
     elements.strategyText.textContent = 'Keep the pace light. This review checks recall without changing mastery.';
     return;
   }
@@ -862,7 +1050,7 @@ function updateAchievements() {
   const badges = [];
 
   if (completedSets >= 1) {
-    badges.push({ title: 'First Set', meta: 'Completed the first 10-word set.', icon: '🌱' });
+    badges.push({ title: 'First Set', meta: 'Completed the first mastery set.', icon: '🌱' });
   }
   if (completedSets >= 2) {
     badges.push({ title: 'Set Climber', meta: 'Unlocked the third set.', icon: '🧗' });
@@ -953,8 +1141,8 @@ function buildReflectionText() {
   if (completedSet) {
     return `${learner.name} finished ${formatSetLabel(state.session.setIndex)} and unlocked the next set.`;
   }
-  if (state.session.type === 'set-review') {
-    return 'This whole-set review gives a quick confidence check without changing mastery.';
+  if (isWordReviewSession()) {
+    return 'This review gives a quick confidence check without changing mastery.';
   }
   if (state.session.masteredThisSession >= 3) {
     return 'Strong mastery session. Several words moved into the mastered column.';
@@ -992,9 +1180,11 @@ function updateScorecardActions() {
     return;
   }
 
-  if (state.session.type === 'set-review') {
-    elements.nextStepText.textContent = `Whole-set review is complete. Return to mastery in ${formatSetLabel(learner.activeSetIndex)} whenever you want.`;
-    elements.reviewCompletedSetBtn.textContent = `Review ${formatSetLabel(state.session.setIndex)} Again`;
+  if (isWordReviewSession()) {
+    elements.nextStepText.textContent = `${sessionModeLabel()} is complete. Return to mastery in ${formatSetLabel(learner.activeSetIndex)} whenever you want.`;
+    elements.reviewCompletedSetBtn.textContent = state.session.type === 'set-review'
+      ? `Review ${formatSetLabel(state.session.setIndex)} Again`
+      : 'Review Current Set';
     elements.newSessionBtn.textContent = 'Practice Current Set';
     return;
   }
@@ -1049,6 +1239,8 @@ function resetStageToIdle() {
 
 function stagePrompt(mode, wordText) {
   if (mode === 'set-review') return 'Review this word once';
+  if (mode === 'new-words-review') return 'Review this weekly word mix';
+  if (mode === 'prior-words-review') return 'Review this prior word';
   const learner = getActiveLearner();
   const progress = learner ? getWordProgress(learner, wordText) : null;
   if (!progress) return 'Say this word';
@@ -1057,8 +1249,12 @@ function stagePrompt(mode, wordText) {
   return 'Say this word';
 }
 
-function updateTimerBar(remaining = state.timerSeconds * 1000) {
-  const totalMs = state.timerSeconds * 1000;
+function currentTimerSeconds() {
+  return state.session.type === 'price-review' ? state.timerSeconds + 5 : state.timerSeconds;
+}
+
+function updateTimerBar(remaining = currentTimerSeconds() * 1000) {
+  const totalMs = currentTimerSeconds() * 1000;
   const percent = totalMs > 0 ? remaining / totalMs : 0;
   elements.timerProgress.style.transform = `scaleX(${percent})`;
   elements.timerProgress.style.background = percent < 0.25
@@ -1082,26 +1278,38 @@ function stopBeepLoop() {
 }
 
 function scheduleNextBeep() {
-  if (!state.session.active) return;
-  const remainingMs = Math.max(0, state.session.roundStartedAt + state.timerSeconds * 1000 - Date.now());
+  if (!state.session.active || state.session.paused) return;
+  const timerMs = currentTimerSeconds() * 1000;
+  const remainingMs = Math.max(0, state.session.roundStartedAt + timerMs - Date.now());
   if (remainingMs <= 0) return;
-  const interval = 260 + 660 * (remainingMs / Math.max(1, state.timerSeconds * 1000));
+  const interval = 260 + 660 * (remainingMs / Math.max(1, timerMs));
   playBeep();
   beepTimeoutId = setTimeout(scheduleNextBeep, interval);
 }
 
-function clearTimer() {
+function getRoundRemainingMs() {
+  if (state.session.paused && state.session.pausedRemainingMs !== null) {
+    return state.session.pausedRemainingMs;
+  }
+  if (!state.session.roundStartedAt) return currentTimerSeconds() * 1000;
+  return Math.max(0, state.session.roundStartedAt + currentTimerSeconds() * 1000 - Date.now());
+}
+
+function clearTimer(resetBar = true) {
   if (timerId !== null) {
     clearInterval(timerId);
     timerId = null;
   }
   stopBeepLoop();
-  updateTimerBar(state.timerSeconds * 1000);
+  if (resetBar) updateTimerBar(currentTimerSeconds() * 1000);
 }
 
-function startTimer() {
-  clearTimer();
-  const endAt = Date.now() + state.timerSeconds * 1000;
+function startTimer(remainingMs = currentTimerSeconds() * 1000) {
+  clearTimer(false);
+  const timerMs = currentTimerSeconds() * 1000;
+  const endAt = Date.now() + remainingMs;
+  state.session.roundStartedAt = Date.now() - (timerMs - remainingMs);
+  updateTimerBar(remainingMs);
   timerId = setInterval(() => {
     const remainingMs = Math.max(0, endAt - Date.now());
     updateTimerBar(remainingMs);
@@ -1110,7 +1318,6 @@ function startTimer() {
       handleAnswer(false, true);
     }
   }, 100);
-  state.session.roundStartedAt = Date.now();
   startBeepLoop();
 }
 
@@ -1124,12 +1331,14 @@ function beginRound() {
     return;
   }
 
+  state.session.paused = false;
+  state.session.pausedRemainingMs = null;
   state.session.currentWord = wordText;
   state.lastWord = wordText;
   elements.wordLabel.textContent = stagePrompt(state.session.type, wordText);
   elements.wordText.textContent = wordText;
-  elements.wordStageTag.textContent = state.session.type === 'set-review' ? 'Set review' : 'Mastery';
-  elements.roundStatusTag.textContent = state.session.type === 'set-review' ? 'One pass only' : 'Live round';
+  elements.wordStageTag.textContent = isWordReviewSession() ? 'Word review' : 'Mastery';
+  elements.roundStatusTag.textContent = isWordReviewSession() ? 'Review only' : 'Live round';
   elements.lastWordText.textContent = wordText;
   startTimer();
   updateInteractionModeUI();
@@ -1142,6 +1351,8 @@ function finishSession() {
 
   clearTimer();
   state.session.active = false;
+  state.session.paused = false;
+  state.session.pausedRemainingMs = null;
 
   const entry = {
     timestamp: Date.now(),
@@ -1154,8 +1365,10 @@ function finishSession() {
     completedSet: state.session.completedSet,
   };
 
-  learner.history.push(entry);
-  learner.history = learner.history.slice(-24);
+  if (!state.session.skipHistory) {
+    learner.history.push(entry);
+    learner.history = learner.history.slice(-24);
+  }
 
   if (state.session.completedSet && getSets()[state.session.setIndex + 1]) {
     state.lastWord = `${formatSetLabel(state.session.setIndex)} complete`;
@@ -1206,8 +1419,39 @@ function maybeUnlockSet(learner, setIndex) {
   return statsBefore.completed || learner.unlockedSetCount > before;
 }
 
+function pauseSession() {
+  if (!state.session.active || !state.session.currentWord || state.session.paused) return;
+  state.session.pausedRemainingMs = getRoundRemainingMs();
+  state.session.paused = true;
+  clearTimer(false);
+  updateTimerBar(state.session.pausedRemainingMs);
+  elements.roundStatusTag.textContent = 'Paused';
+  elements.stageHintText.textContent = 'Paused. Tap Resume when you are ready.';
+  updateInteractionModeUI();
+  saveState();
+}
+
+function resumeSession() {
+  if (!state.session.active || !state.session.currentWord || !state.session.paused) return;
+  const remainingMs = state.session.pausedRemainingMs || currentTimerSeconds() * 1000;
+  state.session.paused = false;
+  state.session.pausedRemainingMs = null;
+  elements.roundStatusTag.textContent = isReviewModeActive() ? 'Review only' : 'Live round';
+  startTimer(remainingMs);
+  updateInteractionModeUI();
+  saveState();
+}
+
+function togglePauseSession() {
+  if (state.session.paused) {
+    resumeSession();
+    return;
+  }
+  pauseSession();
+}
+
 function handleAnswer(isPass, timedOut = false) {
-  if (!state.session.active || !state.session.currentWord) return;
+  if (!state.session.active || !state.session.currentWord || state.session.paused) return;
 
   clearTimer();
   const learner = getActiveLearner();
@@ -1219,7 +1463,7 @@ function handleAnswer(isPass, timedOut = false) {
   state.session.roundsPlayed += 1;
   pushRecentWord(wordText);
 
-  if (state.session.type === 'set-review') {
+  if (isWordReviewSession()) {
     if (isPass) {
       learner.totalCorrect += 1;
       progress.reviewPasses += 1;
@@ -1292,7 +1536,7 @@ function handleAnswer(isPass, timedOut = false) {
   updateSetsGrid();
   saveState();
 
-  const reviewFinished = state.session.type === 'set-review' && state.session.queue.length === 0;
+  const reviewFinished = isWordReviewSession() && state.session.queue.length === 0;
   const masteryFinished = state.session.type === 'mastery' && getSetStats(learner, state.session.setIndex).completed;
   const durationFinished = state.session.type === 'mastery'
     && state.session.roundsPlayed > 0
@@ -1315,32 +1559,69 @@ function triggerFeedback(kind) {
 }
 
 function isReviewModeActive() {
-  return state.session.active && state.session.type === 'set-review';
+  return state.session.active && [
+    'set-review',
+    'new-words-review',
+    'prior-words-review',
+    'number-review',
+    'price-review',
+    'range-review',
+    'next-number',
+    'count-by-review',
+  ].includes(state.session.type);
 }
 
 function updateInteractionModeUI() {
   const learner = getActiveLearner();
   const reviewActive = isReviewModeActive();
+  const practiceActive = state.session.active && !reviewActive;
+  const setupActive = state.newWordsPaneOpen && !state.session.active;
   const roundLive = state.session.active && Boolean(state.session.currentWord);
+  const paused = state.session.paused;
   document.body.classList.toggle('review-active', reviewActive);
+  document.body.classList.toggle('practice-active', practiceActive);
+  document.body.classList.toggle('new-words-setup-active', setupActive);
   elements.gamePanel.classList.toggle('review-active', reviewActive);
+  elements.gamePanel.classList.toggle('practice-active', practiceActive);
+  elements.gamePanel.classList.toggle('new-words-setup-active', setupActive);
+  elements.newWordsSetupCard.classList.toggle('hidden', !setupActive);
   elements.reviewModeBanner.classList.toggle('hidden', !reviewActive);
   elements.reviewSetBtn.disabled = !learner || !getSetStats(learner, learner.activeSetIndex).unlocked || state.session.active;
   elements.reviewNowBtn.disabled = !learner || state.session.active;
   elements.startBtn.disabled = !learner || state.session.active;
+  elements.wordSetMasteryBtn.disabled = !learner || state.session.active;
+  elements.reviewNewWordsBtn.disabled = !learner || state.session.active;
+  elements.reviewPriorWordsBtn.disabled = !learner || state.session.active;
+  elements.numberTeenFocusBtn.disabled = !learner || state.session.active;
+  elements.numberPricesBtn.disabled = !learner || state.session.active;
+  elements.numberRangeBtn.disabled = !learner || state.session.active;
+  elements.numberNextBtn.disabled = !learner || state.session.active;
   elements.stopSessionBtn.disabled = !state.session.active;
-  elements.passBtn.disabled = !roundLive;
-  elements.failBtn.disabled = !roundLive || reviewActive;
+  elements.passBtn.disabled = !roundLive || paused;
+  elements.failBtn.disabled = !roundLive;
+  elements.addNewWordsBtn.disabled = !learner || state.session.active;
+  elements.startNewWordsReviewBtn.disabled = !learner || state.session.active || (learner.weeklyWords || []).length === 0;
+  elements.failBtn.textContent = paused ? 'Resume' : 'Pause';
   elements.passBtn.classList.toggle('review-primary', reviewActive);
-  elements.failBtn.classList.toggle('hidden', reviewActive);
+  elements.failBtn.classList.toggle('hidden', false);
   elements.exitReviewBtn.classList.toggle('hidden', !reviewActive);
-  elements.reviewBannerTitle.textContent = reviewActive ? `${formatSetLabel(state.session.setIndex)} review is full screen.` : 'Review mode is simplified.';
+  elements.reviewBannerTitle.textContent = paused
+    ? `${sessionModeLabel()} is paused.`
+    : reviewActive
+      ? `${sessionModeLabel()} is full screen.`
+      : 'Review mode is simplified.';
   elements.reviewBannerCopy.textContent = reviewActive
-    ? 'Each word appears once. Tap the big button for correct answers, or swipe left to close review.'
-    : 'Use one big button for correct answers. Swipe left on the word card to stop review and return to the main screen.';
-  elements.stageHintText.textContent = reviewActive
-    ? 'Whole-set review keeps mastery unchanged. It is just a confidence check for this unlocked set.'
-    : 'Start set mastery to build words to 3 checks. Misses step progress back gently instead of wiping it out.';
+    ? paused
+      ? 'The timer is stopped. Resume when you are ready, or swipe left to close review.'
+      : 'Each prompt appears once. Tap I Got It for correct answers, Pause for a break, or swipe left to close review.'
+    : paused
+      ? 'The timer is stopped. Resume keeps the current card in place.'
+      : 'Use I Got It for correct answers. Pause keeps the current card and timer right where they are.';
+  elements.stageHintText.textContent = paused
+    ? 'Paused. Tap Resume when you are ready.'
+    : reviewActive
+      ? 'Review keeps mastery unchanged. Pause if you need a moment, then resume from the same prompt.'
+      : 'Start set mastery to build words to 3 checks. Pause keeps the timer from running down.';
 }
 
 function updateSetsGrid() {
@@ -1442,6 +1723,7 @@ function startSession(type, setIndex) {
     learner.activeSetIndex = setIndex;
   }
   state.session = createEmptySession();
+  state.newWordsPaneOpen = false;
   state.session.active = true;
   state.session.type = type;
   state.session.setIndex = setIndex;
@@ -1457,7 +1739,7 @@ function startSession(type, setIndex) {
   updateReviewText();
   updateSetsGrid();
   updateInteractionModeUI();
-  if (type === 'set-review') {
+  if (type !== 'mastery') {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   beginRound();
@@ -1467,6 +1749,86 @@ function startCurrentSetMastery() {
   const learner = getActiveLearner();
   if (!learner) return;
   startSession('mastery', learner.activeSetIndex);
+}
+
+function startWeeklyWordsReview() {
+  const learner = getActiveLearner();
+  if (!learner) return;
+  openNewWordsPane();
+}
+
+function startWeeklyWordsReviewSession() {
+  const learner = getActiveLearner();
+  if (!learner || (learner.weeklyWords || []).length === 0) {
+    openNewWordsPane();
+    return;
+  }
+  closeNewWordsPane(false);
+  startSession('new-words-review', learner.activeSetIndex);
+}
+
+function startPriorWordsReview() {
+  const learner = getActiveLearner();
+  if (!learner) return;
+  startSession('prior-words-review', learner.activeSetIndex);
+}
+
+function openNewWordsPane() {
+  const learner = getActiveLearner();
+  if (!learner) return;
+  tearDownSession();
+  state.newWordsPaneOpen = true;
+  elements.scorecardPanel.classList.add('hidden');
+  elements.nextStepCard.classList.add('hidden');
+  elements.newWordsSetupInput.value = '';
+  resetStageToIdle();
+  updateAllUI();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closeNewWordsPane(update = true) {
+  state.newWordsPaneOpen = false;
+  if (update) updateAllUI();
+}
+
+function addWordsToNextMasterySet(words, learner) {
+  const incoming = uniqueWords(words);
+  if (incoming.length === 0) return [];
+
+  const existingKeys = new Set(state.wordList.map(normalizeWordKey));
+  const newWords = incoming.filter((word) => !existingKeys.has(normalizeWordKey(word)));
+  const setSize = getMasterySetSize();
+  const insertAt = Math.min(state.wordList.length, (learner.activeSetIndex + 1) * setSize);
+
+  if (newWords.length > 0) {
+    state.wordList = uniqueWords([
+      ...state.wordList.slice(0, insertAt),
+      ...newWords,
+      ...state.wordList.slice(insertAt),
+    ]);
+  }
+
+  state.learners.forEach((item) => ensureLearnerProgress(item));
+  learner.weeklyWords = uniqueWords([...(learner.weeklyWords || []), ...incoming])
+    .filter((word) => state.wordList.some((item) => normalizeWordKey(item) === normalizeWordKey(word)));
+  return incoming;
+}
+
+function addNewWordsFromPane() {
+  const learner = getActiveLearner();
+  if (!learner) return;
+
+  const words = parseInlineWords(elements.newWordsSetupInput.value);
+  if (words.length === 0) {
+    alert('Add at least one word first.');
+    return;
+  }
+
+  addWordsToNextMasterySet(words, learner);
+  elements.newWordsSetupInput.value = '';
+  buildWordEditorText();
+  updateAllUI();
+  saveState();
 }
 
 function startNextUnlockedSet() {
@@ -1534,12 +1896,35 @@ function addLearner() {
     return;
   }
 
-  const learner = createLearner(name, elements.newLearnerAvatar.value || '🌟');
+  const learner = createLearner(name, avatarValue(elements.newLearnerCustomAvatar, elements.newLearnerAvatar));
   ensureLearnerProgress(learner);
   state.learners.push(learner);
   state.activeLearnerId = learner.id;
   elements.newLearnerName.value = '';
+  elements.newLearnerCustomAvatar.value = '';
   updateLearnerSelect();
+  updateAllUI();
+  saveState();
+}
+
+function createPromptLearner() {
+  const name = elements.promptLearnerName.value.trim();
+  if (!name) {
+    alert('Please type a learner name first.');
+    return;
+  }
+
+  if (state.learners.some((learner) => learner.name.toLowerCase() === name.toLowerCase())) {
+    alert('That learner name already exists. Please choose a different name.');
+    return;
+  }
+
+  const learner = createLearner(name, avatarValue(elements.promptLearnerCustomAvatar, elements.promptLearnerAvatar));
+  ensureLearnerProgress(learner);
+  state.learners.push(learner);
+  state.activeLearnerId = learner.id;
+  elements.promptLearnerName.value = '';
+  elements.promptLearnerCustomAvatar.value = '';
   updateAllUI();
   saveState();
 }
@@ -1564,11 +1949,6 @@ function renameLearner() {
 function deleteLearner() {
   const learner = getActiveLearner();
   if (!learner) return;
-
-  if (state.learners.length === 1) {
-    alert('You need at least one learner profile in the app.');
-    return;
-  }
 
   const confirmed = confirm(`Delete ${learner.name} and all of this learner's local progress?`);
   if (!confirmed) return;
@@ -1611,14 +1991,26 @@ function loadDefaultWords() {
   updateWordCount();
 }
 
+function saveWeeklyWords() {
+  const learner = getActiveLearner();
+  if (!learner) return;
+
+  const weeklyWords = parseInlineWords(elements.weeklyWordsInput.value);
+  addWordsToNextMasterySet(weeklyWords, learner);
+  learner.weeklyWords = uniqueWords(weeklyWords)
+    .filter((word) => state.wordList.some((item) => normalizeWordKey(item) === normalizeWordKey(word)));
+  buildWordEditorText();
+  updateAllUI();
+  saveState();
+}
+
 function resetProgress() {
   if (!confirm('Reset all learner progress, unlocked sets, and local history?')) return;
 
   localStorage.removeItem(STORAGE_KEY);
   state.wordList = [...DEFAULT_WORDS];
-  state.learners = [createLearner('James', '🌟')];
-  ensureLearnerProgress(state.learners[0]);
-  state.activeLearnerId = state.learners[0].id;
+  state.learners = [];
+  state.activeLearnerId = null;
   state.recentWords = [];
   state.lastWord = 'None';
   state.session = createEmptySession();
@@ -1629,13 +2021,18 @@ function resetProgress() {
 }
 
 async function clearCacheAndReload() {
-  const confirmed = confirm('Clear cached app files and reload for a clean test run?');
+  const confirmed = confirm('Load the latest app files? Learner profiles and progress will stay saved on this device.');
   if (!confirmed) return;
 
+  const savedStudioData = localStorage.getItem(STORAGE_KEY);
   elements.clearCacheBtn.disabled = true;
-  updateAppStatus('Clearing cached files and reloading...');
+  updateAppStatus('Loading the latest app files while keeping learner profiles...');
 
   try {
+    if (savedStudioData) {
+      localStorage.setItem(STORAGE_KEY, savedStudioData);
+    }
+
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       await Promise.all(registrations.map((registration) => registration.unregister()));
@@ -1647,6 +2044,10 @@ async function clearCacheAndReload() {
     }
   } catch (error) {
     console.warn('Unable to fully clear cache before reload.', error);
+  } finally {
+    if (savedStudioData && !localStorage.getItem(STORAGE_KEY)) {
+      localStorage.setItem(STORAGE_KEY, savedStudioData);
+    }
   }
 
   window.location.reload();
@@ -1659,6 +2060,8 @@ function exportData() {
     version: 2,
     timerSeconds: state.timerSeconds,
     sessionDurationMinutes: state.sessionDurationMinutes,
+    customNumberRange: state.customNumberRange,
+    masterySetSize: state.masterySetSize,
     profile: state.profile,
     wordList: state.wordList,
     learners: state.learners,
@@ -1686,6 +2089,8 @@ function applyImportedData(parsed) {
   state.activeLearnerId = parsed.activeLearnerId || parsed.learners[0]?.id || null;
   state.timerSeconds = parsed.timerSeconds || state.timerSeconds;
   state.sessionDurationMinutes = parsed.sessionDurationMinutes || state.sessionDurationMinutes;
+  state.customNumberRange = normalizeCustomNumberRange(parsed.customNumberRange);
+  state.masterySetSize = Math.max(4, Math.min(20, Number(parsed.masterySetSize) || state.masterySetSize));
   state.profile = parsed.profile || state.profile;
   state.learners.forEach((learner) => ensureLearnerProgress(learner));
   if (!getActiveLearner() && state.learners[0]) {
@@ -1750,6 +2155,7 @@ function clearReviewSwipe() {
 
 function updateAllUI() {
   updateLearnerSelect();
+  updateWeeklyWordsUI();
   updateCurrentPlayerDisplay();
   updateDashboard();
   updateCoachBoard();
@@ -1760,6 +2166,7 @@ function updateAllUI() {
   updateProfileUI();
   updateSetsGrid();
   updateInteractionModeUI();
+  updateLearnerPrompt();
   if (state.statsPanelOpen) {
     updateStatsPanel();
   }
@@ -1800,6 +2207,10 @@ function attachEvents() {
 
   elements.learnerSelect.addEventListener('change', (event) => selectLearner(event.target.value));
   elements.addLearnerBtn.addEventListener('click', addLearner);
+  elements.createPromptLearnerBtn.addEventListener('click', createPromptLearner);
+  elements.promptLearnerName.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') createPromptLearner();
+  });
   elements.renameLearnerBtn.addEventListener('click', renameLearner);
   elements.deleteLearnerBtn.addEventListener('click', deleteLearner);
   elements.showLearnerStatsBtn.addEventListener('click', openStatsPanel);
@@ -1817,6 +2228,12 @@ function attachEvents() {
     elements.sessionDuration.value = state.sessionDurationMinutes;
     saveState();
   });
+  elements.customNumberMin.addEventListener('change', saveCustomNumberRange);
+  elements.customNumberMax.addEventListener('change', saveCustomNumberRange);
+  elements.masterySetSize.addEventListener('change', () => {
+    state.masterySetSize = Math.max(4, Math.min(20, Number(elements.masterySetSize.value) || DEFAULT_SET_SIZE));
+    saveMasterySetSize();
+  });
   elements.profileSelect.addEventListener('change', () => {
     state.profile = elements.profileSelect.value;
     updateProfileUI();
@@ -1824,6 +2241,16 @@ function attachEvents() {
     saveState();
   });
 
+  elements.saveWeeklyWordsBtn.addEventListener('click', saveWeeklyWords);
+  elements.weeklyWordsInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') saveWeeklyWords();
+  });
+  elements.addNewWordsBtn.addEventListener('click', addNewWordsFromPane);
+  elements.newWordsSetupInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') addNewWordsFromPane();
+  });
+  elements.startNewWordsReviewBtn.addEventListener('click', startWeeklyWordsReviewSession);
+  elements.closeNewWordsPaneBtn.addEventListener('click', () => closeNewWordsPane());
   elements.loadDefaultWordsBtn.addEventListener('click', loadDefaultWords);
   elements.saveWordListBtn.addEventListener('click', saveWordList);
   elements.wordEditorText.addEventListener('input', updateWordCount);
@@ -1833,11 +2260,14 @@ function attachEvents() {
   elements.exitReviewBtn.addEventListener('click', exitReviewSession);
   elements.clearCacheBtn.addEventListener('click', clearCacheAndReload);
   elements.startBtn.addEventListener('click', startCurrentSetMastery);
+  elements.wordSetMasteryBtn.addEventListener('click', startCurrentSetMastery);
+  elements.reviewNewWordsBtn.addEventListener('click', startWeeklyWordsReview);
+  elements.reviewPriorWordsBtn.addEventListener('click', startPriorWordsReview);
   elements.resumeActionBtn.addEventListener('click', resumeLearnerProgress);
   elements.nextSetBtn.addEventListener('click', startNextUnlockedSet);
   elements.reviewCompletedSetBtn.addEventListener('click', () => startReviewSession(state.session.setIndex));
   elements.passBtn.addEventListener('click', () => handleAnswer(true));
-  elements.failBtn.addEventListener('click', () => handleAnswer(false));
+  elements.failBtn.addEventListener('click', togglePauseSession);
   elements.stopSessionBtn.addEventListener('click', stopSession);
   elements.newSessionBtn.addEventListener('click', startNewSession);
   elements.wordCard.addEventListener('touchstart', handleReviewSwipeStart, { passive: true });
@@ -1849,10 +2279,10 @@ function attachEvents() {
   window.addEventListener('offline', () => updateAppStatus('Offline mode active.'));
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
-    updateAppStatus('Install available from your browser menu.');
+    updateAppStatus('Online and ready.');
   });
   window.addEventListener('appinstalled', () => {
-    updateAppStatus('Installed. Open it from your home screen.');
+    updateAppStatus('App ready.');
   });
 
   document.addEventListener('keydown', (event) => {
@@ -1865,9 +2295,9 @@ function attachEvents() {
         startCurrentSetMastery();
       }
     }
-    if (event.code === 'KeyX' && state.session.active && state.session.currentWord && !isReviewModeActive()) {
+    if ((event.code === 'KeyP' || event.code === 'KeyX') && state.session.active && state.session.currentWord) {
       event.preventDefault();
-      handleAnswer(false);
+      togglePauseSession();
     }
     if (event.code === 'Escape' && isReviewModeActive()) {
       event.preventDefault();
@@ -1878,26 +2308,56 @@ function attachEvents() {
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) {
-    updateAppStatus('Installable in modern browsers. Offline support is unavailable here.');
+    updateAppStatus('Online and ready.');
     return;
   }
 
-  navigator.serviceWorker.register('./sw.js').then(() => {
-    updateAppStatus(navigator.onLine ? 'Offline-ready once the app finishes caching.' : 'Offline mode active.');
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!appUpdateReloading) return;
+    window.location.reload();
+  });
+
+  navigator.serviceWorker.register('./sw.js').then((registration) => {
+    appUpdateRegistration = registration;
+    if (registration.waiting && navigator.serviceWorker.controller) {
+      showAppUpdateButton(registration);
+    }
+
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      if (!newWorker) return;
+
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          showAppUpdateButton(registration);
+        }
+      });
+    });
+
+    registration.update().catch(() => {});
+    updateAppStatus(navigator.onLine ? 'Ready.' : 'Offline mode active.');
   }).catch(() => {
-    updateAppStatus('Running in browser mode without offline install support.');
+    updateAppStatus('Ready in browser mode.');
   });
 }
 
 function initialize() {
   loadState();
+  ensureAppUpdateButton();
+  hideAppUpdateButton();
   elements.timerSeconds.value = state.timerSeconds;
   elements.sessionDuration.value = state.sessionDurationMinutes;
+  state.customNumberRange = normalizeCustomNumberRange();
+  elements.customNumberMin.value = state.customNumberRange.min;
+  elements.customNumberMax.value = state.customNumberRange.max;
+  state.masterySetSize = getMasterySetSize();
+  elements.masterySetSize.value = state.masterySetSize;
   elements.profileSelect.value = state.profile;
   buildWordEditorText();
   attachEvents();
   resetStageToIdle();
   updateAllUI();
+  saveState();
   registerServiceWorker();
 }
 

@@ -559,7 +559,7 @@ button:disabled { opacity: 0.3; cursor: default; transform: none !important; }
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
-.answer-buttons .pass, .answer-buttons .danger {
+.answer-buttons .pass, .answer-buttons .danger, .answer-buttons .secondary {
   min-height: 60px;
   font-size: 1.1rem;
   border-radius: 18px;
@@ -642,6 +642,64 @@ button:disabled { opacity: 0.3; cursor: default; transform: none !important; }
   color: var(--text-2);
 }
 
+.weekly-box {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+
+.count-by-setup {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+
+.count-by-toggle-row input {
+  width: auto;
+  min-width: 22px;
+  min-height: 22px;
+}
+
+.mode-card-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.mode-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  width: 100%;
+  min-height: 112px;
+  text-align: left;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.mode-card span {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.mode-card strong {
+  color: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+  opacity: 0.78;
+}
+
+@media (min-width: 760px) {
+  .mode-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ======= WORD CARD — THE STAR ======= */
 .word-stage { margin-bottom: 12px; }
 
@@ -690,6 +748,115 @@ button:disabled { opacity: 0.3; cursor: default; transform: none !important; }
   font-weight: 900;
   letter-spacing: -0.05em;
   word-break: break-word;
+}
+.word-card .next-number-prompt,
+.word-card .next-number-reveal {
+  --next-color: var(--pass);
+  display: inline-grid;
+  grid-template-columns: auto minmax(1.1em, 1.7em) auto;
+  align-items: center;
+  gap: clamp(0.18em, 2vw, 0.34em);
+  color: var(--text-1);
+  white-space: nowrap;
+}
+
+.word-card .next-number-prompt {
+  --next-color: var(--accent);
+}
+
+.word-card .next-number-reveal.incorrect {
+  --next-color: var(--fail);
+}
+
+.word-card .next-number-current {
+  display: inline-block;
+  transform-origin: 100% 50%;
+  animation: nextNumberStepBack 1.1s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+.word-card .next-number-prompt .next-number-current {
+  animation: none;
+  transform: none;
+}
+
+.word-card .next-number-path {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(3, 0.22em);
+  justify-content: center;
+  gap: 0.1em;
+  height: 0.32em;
+}
+
+.word-card .next-number-path span {
+  width: 0.2em;
+  height: 0.2em;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transform: scale(0.5);
+  animation: nextNumberSpark 0.72s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+.word-card .next-number-path span:nth-child(2) { animation-delay: 0.1s; }
+.word-card .next-number-path span:nth-child(3) { animation-delay: 0.2s; }
+
+.word-card .next-number-prompt .next-number-path span {
+  opacity: 0.55;
+  transform: none;
+  animation: none;
+}
+
+.word-card .next-number-next {
+  position: relative;
+  display: inline-grid;
+  color: var(--next-color);
+  perspective: 3em;
+}
+
+.word-card .next-number-question {
+  color: var(--next-color);
+}
+
+.word-card .next-number-next span {
+  grid-area: 1 / 1;
+}
+
+.word-card .next-number-shadow {
+  color: currentColor;
+  opacity: 0.18;
+  transform: translateY(0.2em) scaleY(0.72);
+  filter: blur(1px);
+  animation: nextNumberShadow 1.1s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+.word-card .next-number-value {
+  transform-origin: 50% 100%;
+  animation: nextNumberFlipIn 1.1s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+@keyframes nextNumberStepBack {
+  0% { transform: translateX(0) scale(1); opacity: 1; }
+  32% { transform: translateX(-0.06em) scale(1.05) rotate(-2deg); opacity: 1; }
+  100% { transform: translateX(-0.12em) scale(0.82); opacity: 0.58; }
+}
+
+@keyframes nextNumberSpark {
+  0% { opacity: 0; transform: translateX(-0.16em) scale(0.45); }
+  38% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0.52; transform: translateX(0.16em) scale(0.68); }
+}
+
+@keyframes nextNumberShadow {
+  0%, 34% { opacity: 0; transform: translateY(0.42em) scaleY(0.45); }
+  70% { opacity: 0.22; transform: translateY(0.24em) scaleY(0.75); }
+  100% { opacity: 0.12; transform: translateY(0.18em) scaleY(0.68); }
+}
+
+@keyframes nextNumberFlipIn {
+  0%, 36% { opacity: 0; transform: translateY(0.52em) rotateX(-86deg) scale(0.88); }
+  66% { opacity: 1; transform: translateY(-0.08em) rotateX(12deg) scale(1.08); }
+  100% { opacity: 1; transform: translateY(0) rotateX(0deg) scale(1); }
 }
 
 .word-card.success {
@@ -884,10 +1051,122 @@ button:disabled { opacity: 0.3; cursor: default; transform: none !important; }
 .review-banner { display: grid; gap: 5px; margin-bottom: 12px; padding: 12px 14px; border-radius: 14px; background: var(--accent-soft); font-size: 0.85rem; color: var(--text-1); }
 .review-banner strong { font-size: 0.88rem; }
 .review-exit-btn { justify-self: start; min-height: 36px; padding: 8px 12px; }
-.review-active .word-card { min-height: 220px; border-color: var(--accent); }
-.game-panel.review-active { position: fixed; inset: 0; z-index: 40; width: 100%; max-width: none; margin: 0; border-radius: 0; padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 20px); overflow-y: auto; background: var(--bg); }
+.review-active .word-card {
+  min-height: 220px;
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+.review-active .word-card span:first-child { color: var(--text-1); }
+.game-panel.review-active,
+.game-panel.practice-active,
+.game-panel.new-words-setup-active { position: fixed; inset: 0; z-index: 40; width: 100%; max-width: none; margin: 0; border-radius: 0; padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 20px); overflow-y: auto; background: var(--bg); }
 .review-primary { flex: 1 1 100%; min-height: 56px; font-size: 1rem; background: var(--accent); }
-body.review-active { overflow: hidden; }
+body.review-active,
+body.practice-active,
+body.new-words-setup-active { overflow: hidden; }
+body.review-active #voiceToggle,
+body.practice-active #voiceToggle,
+body.new-words-setup-active #voiceToggle,
+body.review-active #voiceIndicator,
+body.practice-active #voiceIndicator,
+body.new-words-setup-active #voiceIndicator,
+body.review-active #appUpdateBtn,
+body.practice-active #appUpdateBtn,
+body.new-words-setup-active #appUpdateBtn {
+  display: none !important;
+}
+
+#appUpdateBtn {
+  position: fixed;
+  right: 156px;
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  z-index: 1000;
+  min-height: 48px;
+  padding: 12px 18px;
+  border-radius: 24px;
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: #0b1220;
+  background: linear-gradient(135deg, #ffd60a, #38bdf8);
+  border: 2px solid rgba(255,255,255,0.48);
+  opacity: 1;
+  box-shadow: 0 0 0 0 rgba(255,214,10,0.5), 0 8px 24px rgba(0,0,0,0.36);
+  animation: updateAppPulse 1.6s ease-in-out infinite;
+}
+
+@media (max-width: 460px) {
+  #appUpdateBtn {
+    right: 16px;
+    bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@keyframes updateAppPulse {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 0 rgba(255,214,10,0.5), 0 8px 24px rgba(0,0,0,0.36);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 0 0 10px rgba(255,214,10,0), 0 12px 30px rgba(56,189,248,0.3);
+  }
+}
+
+.new-words-setup-card {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+
+.new-words-setup-card h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.new-words-setup-card p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.learner-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0,0,0,0.58);
+}
+
+.learner-prompt-card {
+  display: grid;
+  gap: 12px;
+  width: min(420px, 100%);
+  padding: 18px;
+  border-radius: 20px;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-lg);
+}
+
+.learner-prompt-card h2,
+.learner-prompt-card p {
+  margin: 0;
+}
+
+.learner-prompt-card p {
+  color: var(--text-2);
+  font-size: 0.92rem;
+}
+
+body.learner-prompt-active {
+  overflow: hidden;
+}
 
 /* ======= BATMAN ======= */
 .bat-guardian { display: flex; justify-content: center; margin-bottom: -2px; }
