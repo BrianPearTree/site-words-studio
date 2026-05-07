@@ -50,6 +50,12 @@
   document.body.appendChild(toggle);
   document.body.appendChild(indicator);
 
+  function updateVoiceToggleVisibility() {
+    toggle.style.display = enabled ? '' : 'none';
+  }
+
+  updateVoiceToggleVisibility();
+
   // --- Homophones: words that sound the same or kids commonly mishear ---
   var HOMOPHONES = {
     'to': ['two', 'too', 'do', 'tu'],
@@ -415,6 +421,7 @@
       toggle.style.color = '';
       stopListening();
     }
+    updateVoiceToggleVisibility();
   });
 
   // --- Watch for word changes to reset state ---

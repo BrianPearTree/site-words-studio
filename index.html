@@ -11,7 +11,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta
     name="description"
-    content="A playful installable sight words coach with quick sessions, review mode, streaks, and rich progress tracking."
+    content="A sight words and number practice coach with quick sessions, review mode, streaks, and progress tracking."
   />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
@@ -37,9 +37,9 @@
     <header class="hero">
       <div class="hero-copy">
         <div class="eyebrow"><img src="icons/batman.svg" alt="Batman" class="bat-logo-inline" /> Sight Words Studio</div>
-        <h1>Make practice feel like a tiny celebration.</h1>
+        <h1>Focused sight-word and number practice.</h1>
         <p>
-          Fast rounds, review-ready words, kinder pacing, and a dashboard that helps you spot progress at a glance. Even Batman started with sight words.
+          Build mastery sets, review weekly words, practice number patterns, and track each learner&apos;s progress in short guided sessions.
         </p>
       </div>
       <div class="hero-card panel">
@@ -49,8 +49,8 @@
         </div>
         <div class="hero-grid">
           <div>
-            <span class="hero-label">Install</span>
-            <strong id="appStatusText">Ready to install when supported.</strong>
+            <span class="hero-label">App status</span>
+            <strong id="appStatusText">Ready.</strong>
           </div>
           <div>
             <span class="hero-label">Next review</span>
@@ -100,6 +100,10 @@
             <option value="🛰️">🛰️</option>
           </select>
         </div>
+        <div class="mode-row">
+          <label for="newLearnerCustomAvatar">Custom emoji</label>
+          <input id="newLearnerCustomAvatar" type="text" inputmode="text" maxlength="8" placeholder="🎨" />
+        </div>
 
         <div class="button-row">
           <button id="addLearnerBtn" class="primary">Add Learner</button>
@@ -125,22 +129,49 @@
         </div>
 
         <div class="mode-row">
-          <label for="profileSelect">Learner profile</label>
+          <label for="customNumberMin">Custom number min</label>
+          <input id="customNumberMin" type="number" min="0" max="999" value="1" />
+        </div>
+
+        <div class="mode-row">
+          <label for="customNumberMax">Custom number max</label>
+          <input id="customNumberMax" type="number" min="1" max="999" value="100" />
+        </div>
+
+        <div class="mode-row">
+          <label for="masterySetSize">Words per mastery set</label>
+          <input id="masterySetSize" type="number" min="4" max="20" value="10" />
+        </div>
+
+        <div class="mode-row">
+          <label for="profileSelect">Speed</label>
           <select id="profileSelect">
-            <option value="steady">Steady Builder</option>
-            <option value="emerging">Emerging Reader</option>
-            <option value="speed">Speed Sprinter</option>
+            <option value="emerging">Normal</option>
+            <option value="steady">Fast</option>
+            <option value="speed">Fastest</option>
           </select>
         </div>
 
         <div class="profile-note" id="profileNote">
-          Balanced pacing with a mix of new words and review.
+          Fast pacing with a mix of new words and review.
+        </div>
+
+        <div class="weekly-box">
+          <div class="strip-label">This Week&apos;s Words</div>
+          <div class="mode-row">
+            <label for="weeklyWordsInput">Weekly words</label>
+            <input id="weeklyWordsInput" type="text" placeholder="big, get" />
+          </div>
+          <div class="button-row">
+            <button id="saveWeeklyWordsBtn" class="secondary">Save Weekly Words</button>
+          </div>
+          <div class="word-list" id="weeklyWordsList">No weekly words yet.</div>
         </div>
 
         <div class="button-row">
           <button id="resetProgressBtn" class="secondary">Reset Progress</button>
           <button id="reviewNowBtn" class="secondary">Review Current Set</button>
-          <button id="clearCacheBtn" class="secondary">Clear Cache + Reload</button>
+          <button id="clearCacheBtn" class="secondary">Load Latest App</button>
         </div>
       </section>
 
@@ -179,10 +210,81 @@
       </section>
     </section>
 
+    <section class="panel word-recognition-panel" id="wordRecognitionPanel">
+      <div class="panel-heading">
+        <h2>Sight Words</h2>
+        <p>Choose a focused word practice mode for the active learner.</p>
+      </div>
+      <div class="mode-card-grid">
+        <button id="wordSetMasteryBtn" class="mode-card primary">
+          <span>Set Mastery</span>
+          <strong>Build the current mastery set toward mastery.</strong>
+        </button>
+        <button id="reviewNewWordsBtn" class="mode-card secondary">
+          <span>Review New Words</span>
+          <strong>Add new words, then mix them with prior words.</strong>
+        </button>
+        <button id="reviewPriorWordsBtn" class="mode-card secondary">
+          <span>Review All Prior Words</span>
+          <strong>Review the words already unlocked before the current set.</strong>
+        </button>
+      </div>
+    </section>
+
+    <section class="panel number-recognition-panel" id="numberRecognitionPanel">
+      <div class="panel-heading">
+        <h2>Number Recognition</h2>
+        <p>Run quick number-only practice without changing sight-word mastery.</p>
+      </div>
+      <div class="mode-card-grid">
+        <button id="numberTeenFocusBtn" class="mode-card primary">
+          <span>10-19 Focus</span>
+          <strong>Practice teen numbers and tricky reversals.</strong>
+        </button>
+        <button id="numberPricesBtn" class="mode-card secondary">
+          <span>Prices</span>
+          <strong>Read prices from $1.00 to $99.99 with varied cents and extra time.</strong>
+        </button>
+        <button id="numberRangeBtn" class="mode-card secondary">
+          <span>Custom Range</span>
+          <strong>Practice numbers from the parent-defined range.</strong>
+        </button>
+        <button id="numberNextBtn" class="mode-card secondary">
+          <span>Next Number</span>
+          <strong>Say the number that comes next.</strong>
+        </button>
+        <button id="numberCountByBtn" class="mode-card secondary">
+          <span>Count By</span>
+          <strong>Practice the next number when counting by 5s or 10s.</strong>
+        </button>
+      </div>
+      <div class="count-by-setup hidden" id="countBySetup">
+        <div class="mode-row">
+          <label for="countByStep">Count by</label>
+          <select id="countByStep">
+            <option value="5">5s</option>
+            <option value="10" selected>10s</option>
+          </select>
+        </div>
+        <div class="mode-row">
+          <label for="countByStart">Start number</label>
+          <input id="countByStart" type="number" min="0" max="999" step="5" value="0" />
+        </div>
+        <div class="mode-row count-by-toggle-row">
+          <label for="countByRandom">Random order</label>
+          <input id="countByRandom" type="checkbox" />
+        </div>
+        <div class="button-row">
+          <button id="startCountByBtn" class="primary">Start Count By</button>
+          <button id="closeCountBySetupBtn" class="secondary">Close</button>
+        </div>
+      </div>
+    </section>
+
     <section class="panel sets-panel" id="setsPanel">
       <div class="panel-heading">
         <h2>Word Sets</h2>
-        <p>Words are grouped into sets of 10. Master a set to unlock the next one, then review any unlocked set whenever you want.</p>
+        <p>Words are grouped into configurable mastery sets. Master a set to unlock the next one, then review any unlocked set whenever you want.</p>
       </div>
       <div class="set-summary">
         <div class="status-chip">
@@ -211,7 +313,7 @@
         <div class="player-card" id="currentPlayerCard">
           <div class="avatar" id="currentPlayerAvatar">🙂</div>
           <div>
-            <strong id="currentPlayerName">James</strong>
+            <strong id="currentPlayerName">Add a learner</strong>
             <div id="playerModeLabel">Working in Set 1</div>
             <div class="player-score">Score <strong id="currentPlayerScore">0</strong></div>
           </div>
@@ -232,9 +334,25 @@
         </div>
       </div>
 
+      <section class="new-words-setup-card hidden" id="newWordsSetupCard">
+        <div class="strip-label">Review New Words</div>
+        <h2>Add New Words</h2>
+        <p>New words go into the next mastery set and the full review list. Family member names are great custom words to add here.</p>
+        <div class="mode-row">
+          <label for="newWordsSetupInput">New words</label>
+          <input id="newWordsSetupInput" type="text" placeholder="big, get" />
+        </div>
+        <div class="button-row">
+          <button id="addNewWordsBtn" class="primary">Add Words</button>
+          <button id="startNewWordsReviewBtn" class="secondary">Start Review</button>
+          <button id="closeNewWordsPaneBtn" class="secondary">Close</button>
+        </div>
+        <div class="word-list" id="newWordsSetupList">No new words yet.</div>
+      </section>
+
       <div class="button-row session-launchers">
-        <button id="startBtn" class="primary">Start Set Mastery</button>
-        <button id="reviewSetBtn" class="secondary">Review Whole Set</button>
+        <button id="startBtn" class="primary hidden">Start Set Mastery</button>
+        <button id="reviewSetBtn" class="secondary hidden">Review Whole Set</button>
         <button id="stopSessionBtn" class="secondary">Stop Session</button>
       </div>
 
@@ -252,7 +370,7 @@
           <span id="masteredText" class="mastered-text hidden">Mastered!</span>
           <span id="bonusText" class="bonus-text hidden">+2</span>
         </button>
-        <div class="hint-text" id="stageHintText">Tap the card to start a round. Use Pass for correct, Try Again for more practice.</div>
+        <div class="hint-text" id="stageHintText">Tap the card to start a round. Use I Got It for correct answers, or Pause for a break.</div>
       </div>
 
       <div class="timer-card">
@@ -268,7 +386,7 @@
 
       <div class="button-row answer-buttons">
         <button id="passBtn" class="pass">I Got It</button>
-        <button id="failBtn" class="danger">Try Again</button>
+        <button id="failBtn" class="secondary">Pause</button>
       </div>
     </section>
 
@@ -347,7 +465,7 @@
         <div class="celebration-eyebrow" id="celebrationEyebrow">Nice work</div>
         <div class="celebration-title" id="celebrationTitle">Set progress is moving.</div>
         <div class="celebration-copy" id="celebrationCopy">Keep going in the current set.</div>
-        <div class="celebration-meta" id="celebrationMeta">The next set unlocks automatically after all 10 words are mastered.</div>
+        <div class="celebration-meta" id="celebrationMeta">The next set unlocks automatically after all words are mastered.</div>
       </div>
       <div class="scorecard-stats">
         <div class="stat-card">
@@ -401,7 +519,7 @@
     <section class="panel rewards-panel">
       <div class="panel-heading">
         <h2>Reward Shelf</h2>
-        <p>Tiny celebrations help practice stick.</p>
+        <p>Badges mark completed sessions and mastery milestones.</p>
       </div>
       <div class="achievement-grid" id="achievementGrid">
         <div class="achievement-card locked">Finish a session to unlock your first badge.</div>
@@ -457,9 +575,36 @@
     </section>
   </div>
 
+  <section class="learner-prompt hidden" id="learnerPrompt" aria-modal="true" role="dialog" aria-labelledby="learnerPromptTitle">
+    <div class="learner-prompt-card">
+      <div class="strip-label">First Learner</div>
+      <h2 id="learnerPromptTitle">Choose a learner</h2>
+      <p>Add a name and avatar before starting practice.</p>
+      <div class="mode-row">
+        <label for="promptLearnerName">Name</label>
+        <input id="promptLearnerName" type="text" placeholder="Type a learner name" />
+      </div>
+      <div class="mode-row">
+        <label for="promptLearnerAvatar">Avatar</label>
+        <select id="promptLearnerAvatar">
+          <option value="🌟">🌟</option>
+          <option value="🧑">🧑</option>
+          <option value="👧">👧</option>
+          <option value="🚀">🚀</option>
+          <option value="⭐">⭐</option>
+          <option value="🦇">🦇</option>
+        </select>
+      </div>
+      <div class="mode-row">
+        <label for="promptLearnerCustomAvatar">Custom emoji</label>
+        <input id="promptLearnerCustomAvatar" type="text" inputmode="text" maxlength="8" placeholder="🎨" />
+      </div>
+      <button id="createPromptLearnerBtn" class="primary">Create Learner</button>
+    </div>
+  </section>
+
   <script src="script.js"></script>
   <script src="navigation.js"></script>
   <script src="theme-switcher.js"></script>
-  <script src="voice-recognition.js"></script>
 </body>
 </html>

@@ -1,9 +1,12 @@
-const CACHE_NAME = 'sight-words-studio-v10';
+const CACHE_NAME = 'sight-words-studio-v15';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
+  './batman-patch.css',
   './script.js',
+  './navigation.js',
+  './theme-switcher.js',
   './manifest.webmanifest',
   './audio/tick.wav',
   './audio/success.wav',
@@ -19,7 +22,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -31,6 +33,12 @@ self.addEventListener('activate', (event) => {
     ))
   );
   self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
