@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="black">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -18,6 +18,10 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="batman-patch.css" />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css"
+  />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -31,6 +35,36 @@
       }
     }
   </script>
+  <style>
+    /* Let daisyUI controls own their look without fighting the legacy globals in style.css */
+    .input.input-bordered,
+    .select.select-bordered,
+    .textarea.textarea-bordered {
+      width: min(260px, 100%);
+      box-shadow: none;
+      background: var(--fallback-b1, #1f1f1f);
+      color: var(--fallback-bc, #f5f5f5);
+    }
+    .textarea.textarea-bordered {
+      width: 100%;
+      min-height: 144px;
+    }
+    .btn {
+      min-height: 3rem;
+      box-shadow: none;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    .mode-card.btn {
+      height: auto;
+      padding: 18px 20px;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      gap: 6px;
+    }
+  </style>
 </head>
 <body class="dark bg-black dark:bg-black text-white transition-colors duration-300">
   <div class="app-shell">
@@ -69,18 +103,18 @@
 
         <div class="mode-row">
           <label for="learnerSelect">Learner</label>
-          <select id="learnerSelect">
+          <select id="learnerSelect" class="select select-bordered">
             <option value="">Select a learner</option>
           </select>
         </div>
 
         <div class="mode-row">
           <label for="newLearnerName">Add learner</label>
-          <input id="newLearnerName" type="text" placeholder="Type a learner name" />
+          <input id="newLearnerName" type="text" class="input input-bordered" placeholder="Type a learner name" />
         </div>
         <div class="mode-row">
           <label for="newLearnerAvatar">Avatar</label>
-          <select id="newLearnerAvatar">
+          <select id="newLearnerAvatar" class="select select-bordered">
             <option value="🌟">🌟</option>
             <option value="🧑">🧑</option>
             <option value="👧">👧</option>
@@ -102,50 +136,50 @@
         </div>
         <div class="mode-row">
           <label for="newLearnerCustomAvatar">Custom emoji</label>
-          <input id="newLearnerCustomAvatar" type="text" inputmode="text" maxlength="8" placeholder="🎨" />
+          <input id="newLearnerCustomAvatar" type="text" class="input input-bordered" inputmode="text" maxlength="8" placeholder="🎨" />
         </div>
 
         <div class="button-row">
-          <button id="addLearnerBtn" class="primary">Add Learner</button>
-          <button id="renameLearnerBtn" class="secondary">Rename</button>
-          <button id="deleteLearnerBtn" class="secondary">Delete</button>
-          <button id="showLearnerStatsBtn" class="secondary">Show Stats</button>
+          <button id="addLearnerBtn" class="primary btn btn-primary">Add Learner</button>
+          <button id="renameLearnerBtn" class="secondary btn btn-outline">Rename</button>
+          <button id="deleteLearnerBtn" class="secondary btn btn-outline">Delete</button>
+          <button id="showLearnerStatsBtn" class="secondary btn btn-outline">Show Stats</button>
         </div>
 
         <div class="button-row">
-          <button id="exportDataBtn" class="secondary">Export Data</button>
-          <button id="importDataBtn" class="secondary">Import Data</button>
+          <button id="exportDataBtn" class="secondary btn btn-outline">Export Data</button>
+          <button id="importDataBtn" class="secondary btn btn-outline">Import Data</button>
           <input id="importDataInput" type="file" accept="application/json" class="hidden" />
         </div>
 
         <div class="mode-row">
           <label for="timerSeconds">Word timer</label>
-          <input id="timerSeconds" type="number" min="5" max="30" value="10" />
+          <input id="timerSeconds" type="number" class="input input-bordered" min="5" max="30" value="10" />
         </div>
 
         <div class="mode-row">
           <label for="sessionDuration">Session minutes</label>
-          <input id="sessionDuration" type="number" min="1" max="30" value="2" />
+          <input id="sessionDuration" type="number" class="input input-bordered" min="1" max="30" value="2" />
         </div>
 
         <div class="mode-row">
           <label for="customNumberMin">Custom number min</label>
-          <input id="customNumberMin" type="number" min="0" max="999" value="1" />
+          <input id="customNumberMin" type="number" class="input input-bordered" min="0" max="999" value="1" />
         </div>
 
         <div class="mode-row">
           <label for="customNumberMax">Custom number max</label>
-          <input id="customNumberMax" type="number" min="1" max="999" value="100" />
+          <input id="customNumberMax" type="number" class="input input-bordered" min="1" max="999" value="100" />
         </div>
 
         <div class="mode-row">
           <label for="masterySetSize">Words per mastery set</label>
-          <input id="masterySetSize" type="number" min="4" max="20" value="10" />
+          <input id="masterySetSize" type="number" class="input input-bordered" min="4" max="20" value="10" />
         </div>
 
         <div class="mode-row">
           <label for="profileSelect">Speed</label>
-          <select id="profileSelect">
+          <select id="profileSelect" class="select select-bordered">
             <option value="emerging">Normal</option>
             <option value="steady">Fast</option>
             <option value="speed">Fastest</option>
@@ -160,18 +194,18 @@
           <div class="strip-label">This Week&apos;s Words</div>
           <div class="mode-row">
             <label for="weeklyWordsInput">Weekly words</label>
-            <input id="weeklyWordsInput" type="text" placeholder="big, get" />
+            <input id="weeklyWordsInput" type="text" class="input input-bordered" placeholder="big, get" />
           </div>
           <div class="button-row">
-            <button id="saveWeeklyWordsBtn" class="secondary">Save Weekly Words</button>
+            <button id="saveWeeklyWordsBtn" class="secondary btn btn-outline">Save Weekly Words</button>
           </div>
           <div class="word-list" id="weeklyWordsList">No weekly words yet.</div>
         </div>
 
         <div class="button-row">
-          <button id="resetProgressBtn" class="secondary">Reset Progress</button>
-          <button id="reviewNowBtn" class="secondary">Review Current Set</button>
-          <button id="clearCacheBtn" class="secondary">Load Latest App</button>
+          <button id="resetProgressBtn" class="secondary btn btn-outline">Reset Progress</button>
+          <button id="reviewNowBtn" class="secondary btn btn-outline">Review Current Set</button>
+          <button id="clearCacheBtn" class="secondary btn btn-outline">Load Latest App</button>
         </div>
       </section>
 
@@ -340,20 +374,20 @@
         <p>New words go into the next mastery set and the full review list. Family member names are great custom words to add here.</p>
         <div class="mode-row">
           <label for="newWordsSetupInput">New words</label>
-          <input id="newWordsSetupInput" type="text" placeholder="big, get" />
+          <input id="newWordsSetupInput" type="text" class="input input-bordered" placeholder="big, get" />
         </div>
         <div class="button-row">
-          <button id="addNewWordsBtn" class="primary">Add Words</button>
-          <button id="startNewWordsReviewBtn" class="secondary">Start Review</button>
-          <button id="closeNewWordsPaneBtn" class="secondary">Close</button>
+          <button id="addNewWordsBtn" class="primary btn btn-primary">Add Words</button>
+          <button id="startNewWordsReviewBtn" class="secondary btn btn-outline">Start Review</button>
+          <button id="closeNewWordsPaneBtn" class="secondary btn btn-outline">Close</button>
         </div>
         <div class="word-list" id="newWordsSetupList">No new words yet.</div>
       </section>
 
       <div class="button-row session-launchers">
-        <button id="startBtn" class="primary hidden">Start Set Mastery</button>
-        <button id="reviewSetBtn" class="secondary hidden">Review Whole Set</button>
-        <button id="stopSessionBtn" class="secondary">Stop Session</button>
+        <button id="startBtn" class="primary btn btn-primary hidden">Start Set Mastery</button>
+        <button id="reviewSetBtn" class="secondary btn btn-outline hidden">Review Whole Set</button>
+        <button id="stopSessionBtn" class="secondary btn btn-outline">Stop Session</button>
       </div>
 
       <div class="bat-guardian"><img src="icons/batman.svg" alt="The Dark Knight watches over your words" class="bat-guardian-img" /></div>
@@ -385,8 +419,8 @@
       </div>
 
       <div class="button-row answer-buttons">
-        <button id="passBtn" class="pass">I Got It</button>
-        <button id="failBtn" class="secondary">Pause</button>
+        <button id="passBtn" class="pass btn btn-success btn-lg">I Got It</button>
+        <button id="failBtn" class="secondary btn btn-outline btn-lg">Pause</button>
       </div>
     </section>
 
@@ -448,10 +482,10 @@
         <h2>Word Studio</h2>
         <p>Paste a list, remix it, and keep the set focused.</p>
       </div>
-      <textarea id="wordEditorText" rows="6" placeholder="Type words separated by commas or new lines"></textarea>
+      <textarea id="wordEditorText" class="textarea textarea-bordered" rows="6" placeholder="Type words separated by commas or new lines"></textarea>
       <div class="button-row">
-        <button id="loadDefaultWordsBtn" class="secondary">Load Default Words</button>
-        <button id="saveWordListBtn" class="primary">Save Word List</button>
+        <button id="loadDefaultWordsBtn" class="secondary btn btn-outline">Load Default Words</button>
+        <button id="saveWordListBtn" class="primary btn btn-primary">Save Word List</button>
       </div>
       <div class="word-summary">Word count <strong id="wordCount">0</strong></div>
     </section>
@@ -582,11 +616,11 @@
       <p>Add a name and avatar before starting practice.</p>
       <div class="mode-row">
         <label for="promptLearnerName">Name</label>
-        <input id="promptLearnerName" type="text" placeholder="Type a learner name" />
+        <input id="promptLearnerName" type="text" class="input input-bordered" placeholder="Type a learner name" />
       </div>
       <div class="mode-row">
         <label for="promptLearnerAvatar">Avatar</label>
-        <select id="promptLearnerAvatar">
+        <select id="promptLearnerAvatar" class="select select-bordered">
           <option value="🌟">🌟</option>
           <option value="🧑">🧑</option>
           <option value="👧">👧</option>
@@ -597,9 +631,9 @@
       </div>
       <div class="mode-row">
         <label for="promptLearnerCustomAvatar">Custom emoji</label>
-        <input id="promptLearnerCustomAvatar" type="text" inputmode="text" maxlength="8" placeholder="🎨" />
+        <input id="promptLearnerCustomAvatar" type="text" class="input input-bordered" inputmode="text" maxlength="8" placeholder="🎨" />
       </div>
-      <button id="createPromptLearnerBtn" class="primary">Create Learner</button>
+      <button id="createPromptLearnerBtn" class="primary btn btn-primary btn-block">Create Learner</button>
     </div>
   </section>
 
