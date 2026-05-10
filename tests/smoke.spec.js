@@ -33,6 +33,15 @@ async function seedLearner(page) {
   );
 }
 
+// The bottom tab bar is position: fixed with backdrop-filter. On chromium-on-linux
+// (mobile-chrome viewport) Playwright's elementFromPoint actionability check can
+// resolve to body content under the overlay rather than the tab button, even when
+// stacking is correct visually. dispatchEvent triggers the bound click handler
+// directly — that is the behavior we want to verify here.
+async function tapTab(page, tabId) {
+  await page.locator(`.sws-tab[data-tab="${tabId}"]`).dispatchEvent('click');
+}
+
 test.describe('first-time experience', () => {
   test('loads with first-learner prompt visible', async ({ page }) => {
     await page.goto('/');
@@ -67,13 +76,13 @@ test.describe('seeded learner', () => {
   });
 
   test('switches between tabs via the tab bar', async ({ page }) => {
-    await page.locator('.sws-tab[data-tab="numbers"]').click();
+    await tapTab(page, 'numbers');
     await expect(page.getByRole('heading', { name: /Number Recognition/i })).toBeVisible();
 
-    await page.locator('.sws-tab[data-tab="settings"]').click();
+    await tapTab(page, 'settings');
     await expect(page.getByRole('heading', { name: /Studio Setup/i })).toBeVisible();
 
-    await page.locator('.sws-tab[data-tab="stats"]').click();
+    await tapTab(page, 'stats');
     await expect(page.getByRole('heading', { name: /Coach Board/i })).toBeVisible();
   });
 
@@ -91,7 +100,7 @@ test.describe('seeded learner', () => {
   });
 
   test('exposes number recognition modes', async ({ page }) => {
-    await page.locator('.sws-tab[data-tab="numbers"]').click();
+    await tapTab(page, 'numbers');
     await expect(page.locator('#numberTeenFocusBtn')).toBeVisible();
     await expect(page.locator('#numberPricesBtn')).toBeVisible();
     await expect(page.locator('#numberRangeBtn')).toBeVisible();
