@@ -122,14 +122,16 @@
       display: block !important;
     }
 
-    /* Smooth page transition */
+    /* Smooth page transition.
+       Opacity-only — a residual transform here would create a stacking
+       context on each panel and let it paint above the fixed tab bar. */
     .panel, .hero {
       animation: tabFadeIn 0.25s ease both;
     }
 
     @keyframes tabFadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
   `;
   document.head.appendChild(css);
