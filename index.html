@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="black">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -18,6 +18,10 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="batman-patch.css" />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css"
+  />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -31,17 +35,154 @@
       }
     }
   </script>
+  <style>
+    /* Let daisyUI controls own their look without fighting the legacy globals in style.css */
+    .input.input-bordered,
+    .select.select-bordered,
+    .textarea.textarea-bordered {
+      width: min(260px, 100%);
+      box-shadow: none;
+      background: var(--fallback-b1, #1f1f1f);
+      color: var(--fallback-bc, #f5f5f5);
+    }
+    .textarea.textarea-bordered {
+      width: 100%;
+      min-height: 144px;
+    }
+    .btn {
+      min-height: 3rem;
+      box-shadow: none;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    .mode-card.btn {
+      height: auto;
+      padding: 18px 20px;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      gap: 6px;
+    }
+    /* Unified session banner: one card with player on top, compact stats row below */
+    .session-banner {
+      background: var(--surface-2);
+      border-radius: 18px;
+      padding: 14px 16px;
+      gap: 0 !important;
+    }
+    .session-banner .player-card {
+      background: transparent !important;
+      padding: 0 0 12px !important;
+      border-radius: 0 !important;
+      border-bottom: 1px solid var(--separator) !important;
+      margin-bottom: 12px;
+    }
+    .session-banner .session-status {
+      background: transparent !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 10px !important;
+    }
+    .session-banner .session-status .status-chip {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      justify-content: flex-start !important;
+      gap: 2px !important;
+      padding: 0 !important;
+      border-bottom: none !important;
+      text-align: left;
+    }
+    .session-banner .session-status .status-chip span {
+      font-size: 0.65rem !important;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-3) !important;
+    }
+    .session-banner .session-status .status-chip strong {
+      font-size: 0.95rem !important;
+      text-align: left !important;
+    }
+
+    /* Word Studio: snazzier editor */
+    .editor-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .editor-heading .word-summary {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 5px;
+      background: var(--surface-3, rgba(255,255,255,0.06));
+      border: 1px solid var(--separator, rgba(255,255,255,0.08));
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      color: var(--text-3, rgba(255,255,255,0.55));
+      flex-shrink: 0;
+      white-space: nowrap;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    .editor-heading .word-summary strong {
+      font-size: 1.05rem;
+      color: var(--accent, #ffd60a);
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .textarea.word-editor {
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      min-height: 160px;
+      max-height: 260px;
+      background: rgba(0, 0, 0, 0.28) !important;
+      border-color: rgba(255, 255, 255, 0.08) !important;
+      width: 100%;
+    }
+    .textarea.word-editor:focus {
+      border-color: var(--accent, #ffd60a) !important;
+      outline: 2px solid rgba(255, 214, 10, 0.18);
+      outline-offset: 1px;
+    }
+    .editor-actions {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .editor-actions .btn {
+      width: 100%;
+    }
+    @media (max-width: 480px) {
+      .editor-heading { flex-direction: column; gap: 8px; }
+      .editor-heading .word-summary { align-self: flex-start; }
+    }
+
+    /* Quieter destructive: muted rose, no fill until hover */
+    .btn.stop-session {
+      margin-top: 10px;
+      border-color: rgba(244, 63, 94, 0.35);
+      color: rgba(244, 63, 94, 0.85);
+      background: transparent;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .btn.stop-session:hover:not(:disabled) {
+      border-color: rgba(244, 63, 94, 0.7);
+      color: #fff;
+      background: rgba(244, 63, 94, 0.85);
+    }
+  </style>
 </head>
 <body class="dark bg-black dark:bg-black text-white transition-colors duration-300">
   <div class="app-shell">
     <header class="hero">
-      <div class="hero-copy">
-        <div class="eyebrow"><img src="icons/batman.svg" alt="Batman" class="bat-logo-inline" /> Sight Words Studio</div>
-        <h1>Focused sight-word and number practice.</h1>
-        <p>
-          Build mastery sets, review weekly words, practice number patterns, and track each learner&apos;s progress in short guided sessions.
-        </p>
-      </div>
       <div class="hero-card panel">
         <div class="hero-stat">
           <span class="hero-label">Today&apos;s mission</span>
@@ -69,18 +210,18 @@
 
         <div class="mode-row">
           <label for="learnerSelect">Learner</label>
-          <select id="learnerSelect">
+          <select id="learnerSelect" class="select select-bordered">
             <option value="">Select a learner</option>
           </select>
         </div>
 
         <div class="mode-row">
           <label for="newLearnerName">Add learner</label>
-          <input id="newLearnerName" type="text" placeholder="Type a learner name" />
+          <input id="newLearnerName" type="text" class="input input-bordered" placeholder="Type a learner name" />
         </div>
         <div class="mode-row">
           <label for="newLearnerAvatar">Avatar</label>
-          <select id="newLearnerAvatar">
+          <select id="newLearnerAvatar" class="select select-bordered">
             <option value="🌟">🌟</option>
             <option value="🧑">🧑</option>
             <option value="👧">👧</option>
@@ -102,50 +243,50 @@
         </div>
         <div class="mode-row">
           <label for="newLearnerCustomAvatar">Custom emoji</label>
-          <input id="newLearnerCustomAvatar" type="text" inputmode="text" maxlength="8" placeholder="🎨" />
+          <input id="newLearnerCustomAvatar" type="text" class="input input-bordered" inputmode="text" maxlength="8" placeholder="🎨" />
         </div>
 
         <div class="button-row">
-          <button id="addLearnerBtn" class="primary">Add Learner</button>
-          <button id="renameLearnerBtn" class="secondary">Rename</button>
-          <button id="deleteLearnerBtn" class="secondary">Delete</button>
-          <button id="showLearnerStatsBtn" class="secondary">Show Stats</button>
+          <button id="addLearnerBtn" class="primary btn btn-primary">Add Learner</button>
+          <button id="renameLearnerBtn" class="secondary btn btn-outline">Rename</button>
+          <button id="deleteLearnerBtn" class="secondary btn btn-outline">Delete</button>
+          <button id="showLearnerStatsBtn" class="secondary btn btn-outline">Show Stats</button>
         </div>
 
         <div class="button-row">
-          <button id="exportDataBtn" class="secondary">Export Data</button>
-          <button id="importDataBtn" class="secondary">Import Data</button>
+          <button id="exportDataBtn" class="secondary btn btn-outline">Export Data</button>
+          <button id="importDataBtn" class="secondary btn btn-outline">Import Data</button>
           <input id="importDataInput" type="file" accept="application/json" class="hidden" />
         </div>
 
         <div class="mode-row">
           <label for="timerSeconds">Word timer</label>
-          <input id="timerSeconds" type="number" min="5" max="30" value="10" />
+          <input id="timerSeconds" type="number" class="input input-bordered" min="5" max="30" value="10" />
         </div>
 
         <div class="mode-row">
           <label for="sessionDuration">Session minutes</label>
-          <input id="sessionDuration" type="number" min="1" max="30" value="2" />
+          <input id="sessionDuration" type="number" class="input input-bordered" min="1" max="30" value="2" />
         </div>
 
         <div class="mode-row">
           <label for="customNumberMin">Custom number min</label>
-          <input id="customNumberMin" type="number" min="0" max="999" value="1" />
+          <input id="customNumberMin" type="number" class="input input-bordered" min="0" max="999" value="1" />
         </div>
 
         <div class="mode-row">
           <label for="customNumberMax">Custom number max</label>
-          <input id="customNumberMax" type="number" min="1" max="999" value="100" />
+          <input id="customNumberMax" type="number" class="input input-bordered" min="1" max="999" value="100" />
         </div>
 
         <div class="mode-row">
           <label for="masterySetSize">Words per mastery set</label>
-          <input id="masterySetSize" type="number" min="4" max="20" value="10" />
+          <input id="masterySetSize" type="number" class="input input-bordered" min="4" max="20" value="10" />
         </div>
 
         <div class="mode-row">
           <label for="profileSelect">Speed</label>
-          <select id="profileSelect">
+          <select id="profileSelect" class="select select-bordered">
             <option value="emerging">Normal</option>
             <option value="steady">Fast</option>
             <option value="speed">Fastest</option>
@@ -160,18 +301,18 @@
           <div class="strip-label">This Week&apos;s Words</div>
           <div class="mode-row">
             <label for="weeklyWordsInput">Weekly words</label>
-            <input id="weeklyWordsInput" type="text" placeholder="big, get" />
+            <input id="weeklyWordsInput" type="text" class="input input-bordered" placeholder="big, get" />
           </div>
           <div class="button-row">
-            <button id="saveWeeklyWordsBtn" class="secondary">Save Weekly Words</button>
+            <button id="saveWeeklyWordsBtn" class="secondary btn btn-outline">Save Weekly Words</button>
           </div>
           <div class="word-list" id="weeklyWordsList">No weekly words yet.</div>
         </div>
 
         <div class="button-row">
-          <button id="resetProgressBtn" class="secondary">Reset Progress</button>
-          <button id="reviewNowBtn" class="secondary">Review Current Set</button>
-          <button id="clearCacheBtn" class="secondary">Load Latest App</button>
+          <button id="resetProgressBtn" class="secondary btn btn-outline">Reset Progress</button>
+          <button id="reviewNowBtn" class="secondary btn btn-outline">Review Current Set</button>
+          <button id="clearCacheBtn" class="secondary btn btn-outline">Load Latest App</button>
         </div>
       </section>
 
@@ -340,20 +481,19 @@
         <p>New words go into the next mastery set and the full review list. Family member names are great custom words to add here.</p>
         <div class="mode-row">
           <label for="newWordsSetupInput">New words</label>
-          <input id="newWordsSetupInput" type="text" placeholder="big, get" />
+          <input id="newWordsSetupInput" type="text" class="input input-bordered" placeholder="big, get" />
         </div>
         <div class="button-row">
-          <button id="addNewWordsBtn" class="primary">Add Words</button>
-          <button id="startNewWordsReviewBtn" class="secondary">Start Review</button>
-          <button id="closeNewWordsPaneBtn" class="secondary">Close</button>
+          <button id="addNewWordsBtn" class="primary btn btn-primary">Add Words</button>
+          <button id="startNewWordsReviewBtn" class="secondary btn btn-outline">Start Review</button>
+          <button id="closeNewWordsPaneBtn" class="secondary btn btn-outline">Close</button>
         </div>
         <div class="word-list" id="newWordsSetupList">No new words yet.</div>
       </section>
 
       <div class="button-row session-launchers">
-        <button id="startBtn" class="primary hidden">Start Set Mastery</button>
-        <button id="reviewSetBtn" class="secondary hidden">Review Whole Set</button>
-        <button id="stopSessionBtn" class="secondary">Stop Session</button>
+        <button id="startBtn" class="primary btn btn-primary hidden">Start Set Mastery</button>
+        <button id="reviewSetBtn" class="secondary btn btn-outline hidden">Review Whole Set</button>
       </div>
 
       <div class="bat-guardian"><img src="icons/batman.svg" alt="The Dark Knight watches over your words" class="bat-guardian-img" /></div>
@@ -385,9 +525,10 @@
       </div>
 
       <div class="button-row answer-buttons">
-        <button id="passBtn" class="pass">I Got It</button>
-        <button id="failBtn" class="secondary">Pause</button>
+        <button id="passBtn" class="pass btn btn-success btn-lg">I Got It</button>
+        <button id="failBtn" class="secondary btn btn-outline btn-lg">Pause</button>
       </div>
+      <button id="stopSessionBtn" class="secondary btn btn-outline btn-error btn-block btn-sm stop-session">Stop Session</button>
     </section>
 
     <section class="panel dashboard-panel" id="dashboardPanel">
@@ -444,16 +585,21 @@
     </section>
 
     <section class="panel editor-panel" id="editorPanel">
-      <div class="panel-heading">
-        <h2>Word Studio</h2>
-        <p>Paste a list, remix it, and keep the set focused.</p>
+      <div class="panel-heading editor-heading">
+        <div>
+          <h2>Word Studio</h2>
+          <p>Paste a list, remix it, and keep the set focused.</p>
+        </div>
+        <div class="word-summary" aria-label="Total words">
+          <strong id="wordCount">0</strong>
+          <span>words</span>
+        </div>
       </div>
-      <textarea id="wordEditorText" rows="6" placeholder="Type words separated by commas or new lines"></textarea>
-      <div class="button-row">
-        <button id="loadDefaultWordsBtn" class="secondary">Load Default Words</button>
-        <button id="saveWordListBtn" class="primary">Save Word List</button>
+      <textarea id="wordEditorText" class="textarea textarea-bordered word-editor" rows="6" placeholder="big, get, jump&#10;or one per line..."></textarea>
+      <div class="button-row editor-actions">
+        <button id="loadDefaultWordsBtn" class="secondary btn btn-outline">Load Defaults</button>
+        <button id="saveWordListBtn" class="primary btn btn-primary">Save Word List</button>
       </div>
-      <div class="word-summary">Word count <strong id="wordCount">0</strong></div>
     </section>
 
     <section class="panel scorecard-panel hidden" id="scorecardPanel">
@@ -582,11 +728,11 @@
       <p>Add a name and avatar before starting practice.</p>
       <div class="mode-row">
         <label for="promptLearnerName">Name</label>
-        <input id="promptLearnerName" type="text" placeholder="Type a learner name" />
+        <input id="promptLearnerName" type="text" class="input input-bordered" placeholder="Type a learner name" />
       </div>
       <div class="mode-row">
         <label for="promptLearnerAvatar">Avatar</label>
-        <select id="promptLearnerAvatar">
+        <select id="promptLearnerAvatar" class="select select-bordered">
           <option value="🌟">🌟</option>
           <option value="🧑">🧑</option>
           <option value="👧">👧</option>
@@ -597,9 +743,9 @@
       </div>
       <div class="mode-row">
         <label for="promptLearnerCustomAvatar">Custom emoji</label>
-        <input id="promptLearnerCustomAvatar" type="text" inputmode="text" maxlength="8" placeholder="🎨" />
+        <input id="promptLearnerCustomAvatar" type="text" class="input input-bordered" inputmode="text" maxlength="8" placeholder="🎨" />
       </div>
-      <button id="createPromptLearnerBtn" class="primary">Create Learner</button>
+      <button id="createPromptLearnerBtn" class="primary btn btn-primary btn-block">Create Learner</button>
     </div>
   </section>
 
